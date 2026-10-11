@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.3
+   نظام التصميم — الإصدار 3.4
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -406,6 +406,8 @@ button.who:hover b{color:var(--pri)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
+.sub-em{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+input[readonly]{background:var(--surface2);color:var(--mut);cursor:default}
 </style>
 </head>
 <body>
@@ -523,7 +525,7 @@ function friendly(e){
   if (/failed to fetch|network|load failed/i.test(m)) return 'تعذر الاتصال، تحقق من الإنترنت';
   if (/check constraint/i.test(m)) return 'قيمة غير صالحة، راجع الحقول';
   if (/jwt|expired/i.test(m)) return 'انتهت الجلسة، سجّل الدخول من جديد';
-  if (/(birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
+  if (/(email|birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
   return m;
 }
 function busy(b, on){ if (b){ b.disabled = on; b.classList.toggle('loading', on); } }
@@ -768,8 +770,10 @@ const empSheet = (rows, note) => ({
     { h: 'محافظة السكن', w: 15, t: 'center', v: r => r.governorate },
     { h: 'المحافظة التابع لها بالاتحاد', w: 20, t: 'center', v: r => r.union_governorate },
     { h: 'رقم الهاتف', w: 16, t: 'code', v: r => r.phone },
+    { h: 'البريد الإلكتروني', w: 30, t: 'code', v: r => r.email },
     { h: 'رقم البطاقة', w: 20, t: 'code', v: r => r.national_id },
     { h: 'تاريخ الميلاد', w: 15, t: 'date', v: r => r.birth_date },
+    { h: 'العمر', w: 9, t: 'num', v: r => ageOf(r.birth_date) },
     { h: 'طالب / خريج', w: 13, t: 'center', v: r => r.study_status },
     { h: 'المرحلة التعليمية', w: 17, t: 'center', v: r => r.edu_stage },
     { h: 'اسم المدرسة / الجامعة', w: 34, t: 'text', v: r => r.institution },
@@ -943,7 +947,7 @@ const VIEWS = {
   employees:   { t: 'بيانات الأعضاء',    n: 'الأعضاء',  i: 'users',  fn: viewEmployees },
   tasks:       { t: 'المهام',            n: 'المهام',   i: 'tasks',  fn: viewTasks },
   engagement:  { t: 'التفاعل الأسبوعي',  n: 'التفاعل',  i: 'heart',  fn: viewEngagement },
-  performance: { t: 'تقييم الأداء',      n: 'الأداء',   i: 'star',   admin: true, fn: viewPerformance },
+  performance: { t: 'تقييم الأداء',      n: 'الأداء',   i: 'star',   fn: viewPerformance },
   log:         { t: 'سجل الوصول للهويات', n: 'السجل',    i: 'shield', admin: true, fn: viewLog }
 };
 
@@ -958,7 +962,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.3</div>
+      <div class="side-foot muted">الإصدار 3.4</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1021,7 +1025,7 @@ function accountModal(){
 /* ================= بيانات الأعضاء ================= */
 let empCache = [], empF = newF();
 const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || !r.committee || !r.phone || !r.address || !r.birth_date
-  || !r.gender || !r.union_governorate || !r.study_status || !r.edu_stage || !r.institution;
+  || !r.email || !r.gender || !r.union_governorate || !r.study_status || !r.edu_stage || !r.institution;
 
 /* skipSt = true: تجاهل فلتر الحالة (لحساب عدّادات أزرار الكل/نشط/غير نشط) */
 function filteredEmps(skipSt){
@@ -1030,7 +1034,7 @@ function filteredEmps(skipSt){
     if (!skipSt && empF.st !== 'all' && r.status !== empF.st) return false;
     for (const x of FILTERS) if (empF[x.k] && r[x.f] !== empF[x.k]) return false;
     if (!toks.length) return true;
-    const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id].join(' '));
+    const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id, r.email].join(' '));
     return toks.every(t => hay.includes(t));
   });
 }
@@ -1049,7 +1053,7 @@ async function viewEmployees(tok){
   ${pageHead('سجّل بيانات الأعضاء وصورهم، ثم ابحث وصفِّ وصدّر ما تحتاجه.', `<button class="btn sec" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button><button class="btn" id="addE">${ic('plus')} إضافة عضو</button>`)}
   <div class="card fbar">
     <div class="fbar-top">
-      <div class="search">${ic('search')}<input id="q" type="search" placeholder="ابحث بالاسم أو رقم العضوية" aria-label="بحث بالاسم أو رقم العضوية" autocomplete="off"></div>
+      <div class="search">${ic('search')}<input id="q" type="search" placeholder="ابحث بالاسم أو رقم العضوية أو البريد" aria-label="بحث بالاسم أو رقم العضوية أو البريد" autocomplete="off"></div>
       <div class="chips" id="stc"><button data-v="all" class="on">الكل <small></small></button><button data-v="active">نشط <small></small></button><button data-v="inactive">غير نشط <small></small></button></div>
       <span class="muted fbar-cnt" id="cnt"></span>
       <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
@@ -1092,11 +1096,11 @@ function renderEmployees(){
   const c = $('#cnt'); if (c) c.textContent = rows.length + ' من ' + empCache.length;
   if (!rows.length){ list.innerHTML = emptyBox('users', empCache.length ? 'لا توجد نتائج مطابقة.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
   const shown = rows.slice(0, empF.limit);
-  list.innerHTML = `<table><thead><tr><th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / جهة التمثيل</th><th class="hide-lg">المحافظة</th><th class="hide-md">الهاتف</th><th>الحالة</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
+  list.innerHTML = `<table><thead><tr><th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / جهة التمثيل</th><th class="hide-lg">المحافظة</th><th class="hide-md">الهاتف / البريد</th><th>الحالة</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
   ${shown.map((r, i) => `<tr style="--i:${Math.min(i, 12)}">
-    <td><button type="button" class="who" data-a="view" data-id="${r.id}" title="عرض بيانات العضو"><span class="av" data-path="${esc(r.photo_path || '')}">${esc(initials(r.full_name))}</span><div><b>${esc(r.full_name)}</b><div class="muted">${r.membership_no ? 'رقم العضوية: <bdi>' + esc(r.membership_no) + '</bdi>' : '—'}${incomplete(r) ? ' <span class="tag warn">بيانات ناقصة</span>' : ''}</div></div></button></td>
+    <td><button type="button" class="who" data-a="view" data-id="${r.id}" title="عرض بيانات العضو"><span class="av" data-path="${esc(r.photo_path || '')}">${esc(initials(r.full_name))}</span><div><b>${esc(r.full_name)}</b><div class="muted">${r.membership_no ? 'رقم العضوية: <bdi>' + esc(r.membership_no) + '</bdi>' : '—'}${ageOf(r.birth_date) != null ? ' · ' + ageOf(r.birth_date) + ' سنة' : ''}${incomplete(r) ? ' <span class="tag warn">بيانات ناقصة</span>' : ''}</div></div></button></td>
     <td>${r.capacity ? `<span class="tag info">${esc(r.capacity)}</span>` : '—'}</td>
-    <td class="hide-md">${esc(r.committee) || '—'}</td><td class="hide-lg">${esc(r.governorate) || '—'}</td><td class="hide-md"><bdi>${esc(r.phone) || '—'}</bdi></td>
+    <td class="hide-md">${esc(r.committee) || '—'}</td><td class="hide-lg">${esc(r.governorate) || '—'}</td><td class="hide-md"><bdi>${esc(r.phone) || '—'}</bdi>${r.email ? `<div class="muted sub-em" title="${esc(r.email)}"><bdi>${esc(r.email)}</bdi></div>` : ''}</td>
     <td><span class="tag ${r.status === 'active' ? 'ok' : 'mut'}">${r.status === 'active' ? 'نشط' : 'غير نشط'}</span></td>
     ${isAdmin() ? `<td>${esc(nameOf(r.created_by))}</td>` : ''}
     <td><div class="row-actions">
@@ -1130,7 +1134,7 @@ function memberModal(r){
   const ltr = x => x ? `<bdi dir="ltr">${esc(x)}</bdi>` : '—';
   const kv = (k, v, full) => `<div${full ? ' class="full"' : ''}><dt>${k}</dt><dd>${v}</dd></div>`;
   const age = ageOf(r.birth_date);
-  const birth = r.birth_date ? `<bdi dir="ltr">${esc(r.birth_date)}</bdi>${age != null ? ` <span class="muted">(${age} سنة)</span>` : ''}` : '—';
+  const birth = r.birth_date ? `<bdi dir="ltr">${esc(r.birth_date)}</bdi>` : '—';
   const pcard = (kind, title, path) => `<div class="pcard" data-k="${kind}">
     <div class="pc-h"><span>${title}</span><span class="pc-act">
       ${path && kind === 'ids' ? `<button type="button" class="btn sec sm" data-a="show">${ic('eye', 15)} عرض</button>` : ''}
@@ -1148,8 +1152,10 @@ function memberModal(r){
     <dl class="kv">
       ${kv('رقم العضوية', ltr(r.membership_no))}
       ${kv('رقم الهاتف', ltr(r.phone))}
+      ${kv('البريد الإلكتروني', r.email ? `<bdi dir="ltr">${esc(r.email)}</bdi>` : '—')}
       ${kv('رقم البطاقة', ltr(r.national_id))}
       ${kv('تاريخ الميلاد', birth)}
+      ${kv('العمر', age != null ? age + ' سنة' : '—')}
       ${kv('الجنس', val(r.gender))}
       ${kv('محافظة السكن', val(r.governorate))}
       ${kv('المحافظة التابع لها بالاتحاد', val(r.union_governorate))}
@@ -1196,7 +1202,9 @@ function employeeModal(emp){
       <div class="fld span2"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
       <div class="fld"><label>رقم الهاتف *</label><input name="phone" type="tel" required dir="ltr" inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX" value="${esc(e.phone)}"></div>
       <div class="fld"><label>رقم البطاقة (14 رقماً) *</label><input name="national_id" required dir="ltr" inputmode="numeric" maxlength="14" placeholder="14 رقماً" value="${esc(e.national_id)}"></div>
+      <div class="fld"><label>البريد الإلكتروني *</label><input name="email" type="email" required dir="ltr" inputmode="email" maxlength="150" autocomplete="off" placeholder="name@example.com" value="${esc(e.email)}"></div>
       <div class="fld"><label>تاريخ الميلاد *</label><input name="birth_date" type="date" required dir="ltr" min="1900-01-01" max="${today()}" value="${esc(e.birth_date)}"></div>
+      <div class="fld"><label>العمر (يُحسب تلقائياً)</label><input id="ageView" readonly tabindex="-1" placeholder="اختر تاريخ الميلاد" value="${ageOf(e.birth_date) != null ? ageOf(e.birth_date) + ' سنة' : ''}"></div>
       <div class="fld"><label>الجنس *</label><select name="gender" required><option value="">اختر…</option>${opts(GENDERS, e.gender)}</select></div>
       <div class="fld"><label>محافظة السكن *</label><select name="governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.governorate)}</select></div>
       <div class="fld"><label>المحافظة التابع لها بالاتحاد *</label><select name="union_governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.union_governorate)}</select></div>
@@ -1231,6 +1239,9 @@ function employeeModal(emp){
     if (on && !was){ box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise'); }
   };
   cap.addEventListener('change', sync); sync();
+  const bd = $('[name=birth_date]', m.el), av = $('#ageView', m.el);
+  const showAge = () => { const a = ageOf(bd.value); av.value = a != null && a >= 0 ? a + ' سنة' : ''; };
+  bd.addEventListener('input', showAge); bd.addEventListener('change', showAge);
 
   $$('input[type=file]', m.el).forEach(inp => inp.addEventListener('change', () => {
     const img = inp.parentElement.querySelector('.prev'), f = inp.files[0];
@@ -1245,6 +1256,7 @@ function employeeModal(emp){
       full_name: String(f.get('full_name')).replace(/\s+/g, ' ').trim(),
       phone: toLatin(f.get('phone')).replace(/[\s\-()]/g, ''),
       national_id: toLatin(f.get('national_id')).replace(/\s/g, ''),
+      email: String(f.get('email') || '').trim().toLowerCase(),
       birth_date: String(f.get('birth_date') || '').trim(),
       governorate: f.get('governorate'),
       address: String(f.get('address')).trim(),
@@ -1261,6 +1273,7 @@ function employeeModal(emp){
     if (row.full_name.split(' ').length < 3) return bad('اكتب الاسم كاملاً (ثلاثة أسماء على الأقل)');
     if (!/^\+?\d{8,15}$/.test(row.phone)) return bad('رقم الهاتف غير صالح (أرقام فقط)');
     if (!/^\d{14}$/.test(row.national_id)) return bad('رقم البطاقة يجب أن يكون 14 رقماً');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(row.email) || row.email.length > 150) return bad('البريد الإلكتروني غير صالح');
     if (!isDate(row.birth_date)) return bad('تاريخ الميلاد مطلوب');
     if (row.birth_date < '1900-01-01' || row.birth_date > today()) return bad('تاريخ الميلاد غير صالح');
     if (!GOVS.includes(row.governorate)) return bad('اختر المحافظة');
@@ -1438,28 +1451,30 @@ async function viewEngagement(tok){
   });
 }
 
-/* ================= الأداء (مسؤول) ================= */
+/* ================= الأداء: المسؤول لكل الأعضاء، ومسؤول الإدخال لأعضائه فقط ================= */
 let perfCache = [];
 async function viewPerformance(tok){
   const [emps, perf] = await Promise.all([
-    db(sb.from('employees').select('id,full_name,membership_no,status').order('full_name')),
+    db(isAdmin() ? sb.from('employees').select('id,full_name,membership_no,status').order('full_name') : sb.from('employees').select('id,full_name,membership_no,status').eq('created_by', me.id).order('full_name')),
     db(sb.from('performance').select('*').order('month', { ascending: false }))
   ]);
   perfCache = perf;
+  const mine = r => isAdmin() || r.created_by === me.id;   // التعديل والحذف لصاحب التقييم أو المسؤول
   const nm = id => (emps.find(e => e.id === id) || {}).full_name || '—';
   const months = [...new Set(perf.map(p => p.month.slice(0, 7)))];
   let flt = 'all';
   const table = () => {
     const rows = perf.filter(p => flt === 'all' || p.month.slice(0, 7) === flt);
     if (!rows.length) return emptyBox('star', 'لا توجد تقييمات.');
-    return `<table><thead><tr><th>العضو</th><th>الشهر</th><th>المدير</th><th>الجودة</th><th>المعدل</th><th>ملاحظات</th><th></th></tr></thead><tbody>
+    return `<table><thead><tr><th>العضو</th><th>الشهر</th><th>المدير</th><th>الجودة</th><th>المعدل</th><th>ملاحظات</th>${isAdmin() ? '<th>قيّمه</th>' : ''}<th></th></tr></thead><tbody>
     ${rows.map((r, i) => { const a = ((r.manager_rating || 0) + (r.quality_rating || 0)) / 2, pc = a / 5 * 100, cls = a >= 4 ? '' : a >= 3 ? 'warn' : 'bad';
       return `<tr style="--i:${Math.min(i, 12)}"><td><b>${esc(nm(r.employee_id))}</b></td><td>${esc(r.month.slice(0, 7))}</td><td>${stars(r.manager_rating)}</td><td>${stars(r.quality_rating)}</td>
       <td><div class="pr"><div class="prog"><i class="${cls}" style="--w:${pc}%"></i></div><b>${a.toFixed(1)}</b></div></td><td>${esc(r.notes) || '—'}</td>
-      <td><button class="btn danger sm icon" data-a="del" data-id="${r.id}" title="حذف" aria-label="حذف">${ic('trash')}</button></td></tr>`; }).join('')}</tbody></table>`;
+      ${isAdmin() ? `<td>${esc(nameOf(r.created_by))}</td>` : ''}
+      <td>${mine(r) ? `<button class="btn danger sm icon" data-a="del" data-id="${r.id}" title="حذف" aria-label="حذف">${ic('trash')}</button>` : `<span class="tag mut" title="قيّمه المسؤول">للقراءة</span>`}</td></tr>`; }).join('')}</tbody></table>`;
   };
   if (!paint(tok, `
-  ${pageHead('قيّم أداء الأعضاء شهرياً وراجع التقييمات السابقة.')}
+  ${pageHead(isAdmin() ? 'قيّم أداء الأعضاء شهرياً وراجع التقييمات السابقة.' : 'قيّم أداء الأعضاء الذين أدخلت بياناتهم فقط، وراجع تقييماتك السابقة.')}
   <div class="card"><h2>تقييم شهري</h2>
     ${emps.length ? `<form id="pf"><div class="grid">
       <div class="fld"><label>العضو *</label><select name="employee_id" required>${emps.map(e => `<option value="${e.id}">${esc(e.full_name)}${e.membership_no ? ' — ' + esc(e.membership_no) : ''}${e.status === 'inactive' ? ' (غير نشط)' : ''}</option>`).join('')}</select></div>
@@ -1468,7 +1483,7 @@ async function viewPerformance(tok){
       <div class="fld"><label>تقييم الجودة</label>${pick('quality_rating', RATE_OPTS)}</div></div>
       <div class="fld" style="margin-top:14px"><label>ملاحظات</label><textarea name="notes" maxlength="2000"></textarea></div>
       <div class="muted" id="pnote" style="margin-top:8px"></div>
-      <div style="margin-top:12px"><button class="btn">حفظ التقييم</button></div></form>` : emptyBox('users', 'سجّل أعضاء أولاً من صفحة «بيانات الأعضاء» ثم قيّمهم هنا.')}</div>
+      <div style="margin-top:12px"><button class="btn" id="pSave">حفظ التقييم</button></div></form>` : emptyBox('users', isAdmin() ? 'سجّل أعضاء أولاً من صفحة «بيانات الأعضاء» ثم قيّمهم هنا.' : 'لا يوجد أعضاء أدخلت بياناتهم بعد. أضف عضواً من صفحة «بيانات الأعضاء» ثم قيّمه هنا.')}</div>
   <div class="card"><h2>التقييمات <select id="pmf" style="width:auto;min-width:140px" aria-label="تصفية بالشهر"><option value="all">كل الأشهر</option>${months.map(m => `<option>${esc(m)}</option>`).join('')}</select></h2><div class="tbl" id="pl">${table()}</div></div>`)) return;
   $('#pmf').onchange = e => { flt = e.target.value; $('#pl').innerHTML = table(); };
   $('#pl').addEventListener('click', async e => {
@@ -1483,7 +1498,9 @@ async function viewPerformance(tok){
     const r = perfCache.find(x => x.employee_id === emp && x.month === mo);
     setRadio('manager_rating', r && r.manager_rating); setRadio('quality_rating', r && r.quality_rating);
     pf.elements.notes.value = (r && r.notes) || '';
-    $('#pnote').textContent = r ? 'يوجد تقييم محفوظ لهذا العضو في هذا الشهر، وسيُحدَّث عند الحفظ.' : '';
+    const locked = !!r && !mine(r);
+    $('#pSave').disabled = locked;
+    $('#pnote').textContent = locked ? 'قيّم المسؤول هذا العضو في هذا الشهر، ولا يمكن تعديل تقييمه.' : r ? 'يوجد تقييم محفوظ لهذا العضو في هذا الشهر، وسيُحدَّث عند الحفظ.' : '';
   };
   pf.elements.employee_id.onchange = fill; pf.elements.month.onchange = fill; fill();
   onSubmit(pf, async f => {
@@ -1516,7 +1533,7 @@ const kpi = (icon, label, val, o = {}) => `<div class="kpi ${o.tone || ''}"><spa
 
 /* ---------- مكوّنات تحليل الأعضاء ---------- */
 const AGE_GROUPS = [['أقل من 18', 0, 17], ['من 18 إلى 21', 18, 21], ['من 22 إلى 25', 22, 25], ['من 26 إلى 30', 26, 30], ['من 31 إلى 40', 31, 40], ['أكثر من 40', 41, 200]];
-const COMPLETE_FIELDS = [['رقم العضوية', 'membership_no'], ['رقم الهاتف', 'phone'], ['رقم البطاقة', 'national_id'], ['تاريخ الميلاد', 'birth_date'], ['الجنس', 'gender'],
+const COMPLETE_FIELDS = [['رقم العضوية', 'membership_no'], ['رقم الهاتف', 'phone'], ['البريد الإلكتروني', 'email'], ['رقم البطاقة', 'national_id'], ['تاريخ الميلاد', 'birth_date'], ['الجنس', 'gender'],
   ['محافظة السكن', 'governorate'], ['المحافظة التابع لها بالاتحاد', 'union_governorate'], ['العنوان', 'address'], ['الصفة', 'capacity'], ['اللجنة / جهة التمثيل', 'committee'],
   ['طالب / خريج', 'study_status'], ['المرحلة التعليمية', 'edu_stage'], ['اسم المدرسة / الجامعة', 'institution'], ['الصورة الشخصية', 'photo_path'], ['صورة الهوية', 'id_doc_path']];
 

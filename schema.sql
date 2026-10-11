@@ -1,8 +1,9 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.2 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.4 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
+-- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -105,9 +106,9 @@ create trigger profiles_guard
 -- ---------------------------------------------------------------------
 -- 2) الأعضاء (البيانات + مسارات الصور)
 --    رقم العضوية + المحافظة + العنوان + رقم البطاقة + الصفة + اللجنة
---    [الإصدار 3.1] + تاريخ الميلاد.
---    الأعمدة القديمة (القسم/البريد/الانضمام) تبقى في الجدول كما هي حتى
---    لا تضيع بياناتك، لكن الواجهة لم تعد تستخدمها.
+--    [الإصدار 3.1] + تاريخ الميلاد.  [الإصدار 3.4] + البريد الإلكتروني (email).
+--    العمر يُحسب تلقائياً من تاريخ الميلاد فلا يتقادم.
+--    عمودا القسم والانضمام القديمان يبقيان في الجدول حتى لا تضيع بياناتك.
 -- ---------------------------------------------------------------------
 create table if not exists public.employees (
   id            uuid primary key default gen_random_uuid(),
@@ -265,7 +266,7 @@ create trigger tasks_guard
   for each row execute function public.guard_task_update();
 
 -- ---------------------------------------------------------------------
--- 4) تقييم الأداء (للمسؤول فقط)
+-- 4) تقييم الأداء: المسؤول لكل الأعضاء، ومسؤول الإدخال لأعضائه فقط
 -- ---------------------------------------------------------------------
 create table if not exists public.performance (
   id             uuid primary key default gen_random_uuid(),
@@ -286,6 +287,39 @@ create policy "performance_admin_all" on public.performance
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- [جديد 3.4] مسؤول الإدخال: يرى ويضيف ويعدّل ويحذف التقييمات التي كتبها هو،
+-- وفقط لأعضاء أدخل بياناتهم هو (employees.created_by = auth.uid()).
+-- يرى كذلك تقييمات المسؤول لأعضائه (قراءة فقط) حتى لا يتعارض معها.
+drop policy if exists "performance_member_select" on public.performance;
+create policy "performance_member_select" on public.performance
+  for select to authenticated
+  using (exists (select 1 from public.employees e
+                 where e.id = performance.employee_id and e.created_by = auth.uid()));
+
+drop policy if exists "performance_member_insert" on public.performance;
+create policy "performance_member_insert" on public.performance
+  for insert to authenticated
+  with check (created_by = auth.uid()
+              and exists (select 1 from public.employees e
+                          where e.id = performance.employee_id and e.created_by = auth.uid()));
+
+drop policy if exists "performance_member_update" on public.performance;
+create policy "performance_member_update" on public.performance
+  for update to authenticated
+  using (created_by = auth.uid()
+         and exists (select 1 from public.employees e
+                     where e.id = performance.employee_id and e.created_by = auth.uid()))
+  with check (created_by = auth.uid()
+              and exists (select 1 from public.employees e
+                          where e.id = performance.employee_id and e.created_by = auth.uid()));
+
+drop policy if exists "performance_member_delete" on public.performance;
+create policy "performance_member_delete" on public.performance
+  for delete to authenticated
+  using (created_by = auth.uid()
+         and exists (select 1 from public.employees e
+                     where e.id = performance.employee_id and e.created_by = auth.uid()));
 
 -- ---------------------------------------------------------------------
 -- 5) التفاعل الأسبوعي
@@ -454,6 +488,12 @@ begin
         'الفيوم','بني سويف','المنيا','أسيوط','سوهاج','قنا','الأقصر','أسوان',
         'البحر الأحمر','الوادي الجديد','مطروح'
       )) not valid;
+  end if;
+
+  -- [جديد 3.4] البريد الإلكتروني
+  if not exists (select 1 from pg_constraint where conname = 'employees_email_chk') then
+    alter table public.employees add constraint employees_email_chk
+      check (email is null or (char_length(email) <= 150 and email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]{2,}$')) not valid;
   end if;
 end $$;
 
