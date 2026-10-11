@@ -167,6 +167,25 @@ main.view{padding:22px 26px 48px;max-width:1280px;margin:0 auto}
 .filters select{width:auto;min-width:165px;max-width:260px;flex:1 1 165px}
 .filters select.on{border-color:var(--pri);background:var(--pri-soft);color:var(--pri);font-weight:700}
 
+/* ---------- تحليل الأعضاء في الداشبورد ---------- */
+.dsec{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+.dsec:not(:first-child){margin-top:30px}
+.dsec h2{margin:0;font-size:18px;display:flex;align-items:center;gap:8px}
+.hb{display:grid;gap:11px}
+.hb-r{display:grid;grid-template-columns:minmax(110px,36%) 1fr 70px;align-items:center;gap:10px;font-size:14px}
+.hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{height:10px;background:var(--surface2);border-radius:9px;overflow:hidden}
+.hb-t i{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--pri),var(--pri2));border-radius:9px;transform-origin:right;animation:fillw 1s var(--ease) both}
+.hb-t i.ok{background:linear-gradient(90deg,var(--ok),#34d399)}
+.hb-t i.warn{background:linear-gradient(90deg,var(--warn),#fbbf24)}
+.hb-t i.bad{background:linear-gradient(90deg,var(--bad),#fb7185)}
+.hb-v{text-align:end;font-weight:800;white-space:nowrap}
+.hb-v small{font-weight:400;font-size:11.5px}
+.sc{max-height:380px;overflow:auto;padding-inline-end:4px}
+.card h2 .muted{font-weight:400}
+tfoot th{border-top:2px solid var(--line);border-bottom:0;color:var(--ink);font-size:13.5px}
+@media (max-width:640px){.hb-r{grid-template-columns:minmax(90px,38%) 1fr 62px}}
+
 /* ---------- جداول ---------- */
 .tbl{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:14px}
@@ -341,6 +360,21 @@ const GOVS = ['القاهرة','الجيزة','الإسكندرية','القلي
 const CAPS = ['رئيس','نائب','عضو','عضو مركزي','ممثل'];
 const COMMITTEES = ['لجنة المكتب الإعلامي','لجنة الموارد البشرية','لجنة التنظيم والمراسم','لجنة التدريب والتطوير','لجنة العلاقات العامة والدولية','لجنة الاستدامة والتحول الأخضر','لجنة السياحة والثقافة','لجنة التخطيط والمتابعة','ممثل مكتب المشروعات','ممثل المكتب الفني'];
 
+const GENDERS = ['ذكر','أنثى'];
+const STUDY = ['طالب','خريج'];
+const EDU_STAGES = ['إعدادي','ثانوي','دبلوم / معهد','جامعي','دراسات عليا','دكتوراه'];
+/* فلاتر صفحة الأعضاء: k مفتاح الفلتر، f عمود البيانات، all نص «الكل»، note وصفه في ملف Excel */
+const FILTERS = [
+  { k: 'gov', f: 'governorate',       all: 'كل محافظات السكن',      list: GOVS,        note: 'محافظة السكن' },
+  { k: 'ugov', f: 'union_governorate', all: 'كل محافظات الاتحاد',   list: GOVS,        note: 'محافظة الاتحاد' },
+  { k: 'cap', f: 'capacity',          all: 'كل الصفات',             list: CAPS,        note: 'الصفة' },
+  { k: 'com', f: 'committee',         all: 'كل اللجان / الجهات',    list: COMMITTEES,  note: 'اللجنة' },
+  { k: 'gen', f: 'gender',            all: 'الجنس (الكل)',          list: GENDERS,     note: 'الجنس' },
+  { k: 'std', f: 'study_status',      all: 'طالب / خريج (الكل)',    list: STUDY,       note: 'الحالة الدراسية' },
+  { k: 'edu', f: 'edu_stage',         all: 'كل المراحل التعليمية',  list: EDU_STAGES,  note: 'المرحلة التعليمية' }
+];
+const newF = () => ({ q: '', st: 'all', limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, ''])) });
+
 /* ================= أدوات عامة ================= */
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -402,7 +436,8 @@ const ICONS = {
   link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   undo:'<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
-  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  grad:'<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><line x1="22" y1="10" x2="22" y2="16"/>'
 };
 const ic = (n, s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -423,7 +458,7 @@ function friendly(e){
   if (/failed to fetch|network|load failed/i.test(m)) return 'تعذر الاتصال، تحقق من الإنترنت';
   if (/check constraint/i.test(m)) return 'قيمة غير صالحة، راجع الحقول';
   if (/jwt|expired/i.test(m)) return 'انتهت الجلسة، سجّل الدخول من جديد';
-  if (/birth_date/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
+  if (/(birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
   return m;
 }
 function busy(b, on){ if (b){ b.disabled = on; b.classList.toggle('loading', on); } }
@@ -659,12 +694,17 @@ const empSheet = (rows, note) => ({
     { h: 'م', w: 6, t: 'num', v: (r, i) => i + 1 },
     { h: 'رقم العضوية', w: 15, t: 'code', v: r => r.membership_no },
     { h: 'الاسم الكامل', w: 32, t: 'text', v: r => r.full_name },
+    { h: 'الجنس', w: 11, t: 'center', v: r => r.gender },
     { h: 'الصفة', w: 14, t: 'center', v: r => r.capacity },
     { h: 'اللجنة / جهة التمثيل', w: 32, t: 'text', v: r => r.committee },
-    { h: 'المحافظة', w: 15, t: 'center', v: r => r.governorate },
+    { h: 'محافظة السكن', w: 15, t: 'center', v: r => r.governorate },
+    { h: 'المحافظة التابع لها بالاتحاد', w: 20, t: 'center', v: r => r.union_governorate },
     { h: 'رقم الهاتف', w: 16, t: 'code', v: r => r.phone },
     { h: 'رقم البطاقة', w: 20, t: 'code', v: r => r.national_id },
     { h: 'تاريخ الميلاد', w: 15, t: 'date', v: r => r.birth_date },
+    { h: 'طالب / خريج', w: 13, t: 'center', v: r => r.study_status },
+    { h: 'المرحلة التعليمية', w: 17, t: 'center', v: r => r.edu_stage },
+    { h: 'اسم المدرسة / الجامعة', w: 34, t: 'text', v: r => r.institution },
     { h: 'العنوان', w: 42, t: 'text', v: r => r.address },
     { h: 'الحالة', w: 12, t: 'status', v: r => r.status === 'active' ? 'نشط' : 'غير نشط', tone: v => v === 'نشط' ? 'ok' : 'mut' },
     { h: 'الصورة الشخصية', w: 15, t: 'status', v: r => r.photo_path ? 'مرفقة' : 'غير مرفقة', tone: v => v === 'مرفقة' ? 'ok' : 'warn' },
@@ -832,7 +872,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.1</div>
+      <div class="side-foot muted">الإصدار 3.2</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -893,34 +933,31 @@ function accountModal(){
 }
 
 /* ================= بيانات الأعضاء ================= */
-let empCache = [], empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
-const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || !r.committee || !r.phone || !r.address || !r.birth_date;
+let empCache = [], empF = newF();
+const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || !r.committee || !r.phone || !r.address || !r.birth_date
+  || !r.gender || !r.union_governorate || !r.study_status || !r.edu_stage || !r.institution;
 
 /* skipSt = true: تجاهل فلتر الحالة (لحساب عدّادات أزرار الكل/نشط/غير نشط) */
 function filteredEmps(skipSt){
   const toks = norm(empF.q).split(' ').filter(Boolean);
   return empCache.filter(r => {
     if (!skipSt && empF.st !== 'all' && r.status !== empF.st) return false;
-    if (empF.gov && r.governorate !== empF.gov) return false;
-    if (empF.cap && r.capacity !== empF.cap) return false;
-    if (empF.com && r.committee !== empF.com) return false;
+    for (const x of FILTERS) if (empF[x.k] && r[x.f] !== empF[x.k]) return false;
     if (!toks.length) return true;
     const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id].join(' '));
     return toks.every(t => hay.includes(t));
   });
 }
-const anyFilter = () => !!(empF.q.trim() || empF.st !== 'all' || empF.gov || empF.cap || empF.com);
+const anyFilter = () => !!(empF.q.trim() || empF.st !== 'all' || FILTERS.some(x => empF[x.k]));
 function filterNote(){
   const p = [];
   if (empF.st !== 'all') p.push('الحالة: ' + (empF.st === 'active' ? 'نشط' : 'غير نشط'));
-  if (empF.gov) p.push('المحافظة: ' + empF.gov);
-  if (empF.cap) p.push('الصفة: ' + empF.cap);
-  if (empF.com) p.push('اللجنة: ' + empF.com);
+  FILTERS.forEach(x => { if (empF[x.k]) p.push(x.note + ': ' + empF[x.k]); });
   if (empF.q.trim()) p.push('بحث: ' + empF.q.trim());
   return p.join('   ·   ');
 }
 async function viewEmployees(tok){
-  empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
+  empF = newF();
   const fopts = list => list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
   paint(tok, `
   <div class="toolbar tight">
@@ -931,9 +968,7 @@ async function viewEmployees(tok){
     <button class="btn" id="addE">${ic('plus')} إضافة عضو</button>
   </div>
   <div class="filters" id="flt">
-    <select data-f="gov" aria-label="تصفية حسب المحافظة"><option value="">كل المحافظات</option>${fopts(GOVS)}</select>
-    <select data-f="cap" aria-label="تصفية حسب الصفة"><option value="">كل الصفات</option>${fopts(CAPS)}</select>
-    <select data-f="com" aria-label="تصفية حسب اللجنة أو جهة التمثيل"><option value="">كل اللجان / الجهات</option>${fopts(COMMITTEES)}</select>
+    ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="تصفية حسب ${esc(x.note)}"><option value="">${esc(x.all)}</option>${fopts(x.list)}</select>`).join('')}
     <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
   </div>
   <div class="card" data-nr><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
@@ -944,7 +979,7 @@ async function viewEmployees(tok){
     empF[s.dataset.f] = s.value; empF.limit = 60; renderEmployees();
   });
   $('#fReset').onclick = () => {
-    empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
+    empF = newF();
     $('#q').value = '';
     $$('#flt select').forEach(s => { s.value = ''; });
     $$('#stc button').forEach(x => x.classList.toggle('on', x.dataset.v === 'all'));
@@ -1028,9 +1063,14 @@ function memberModal(r){
       ${kv('رقم الهاتف', ltr(r.phone))}
       ${kv('رقم البطاقة', ltr(r.national_id))}
       ${kv('تاريخ الميلاد', birth)}
-      ${kv('المحافظة', val(r.governorate))}
+      ${kv('الجنس', val(r.gender))}
+      ${kv('محافظة السكن', val(r.governorate))}
+      ${kv('المحافظة التابع لها بالاتحاد', val(r.union_governorate))}
       ${kv('الصفة', val(r.capacity))}
       ${kv('اللجنة / جهة التمثيل', val(r.committee))}
+      ${kv('طالب / خريج', val(r.study_status))}
+      ${kv('المرحلة التعليمية', val(r.edu_stage))}
+      ${kv('اسم المدرسة / الجامعة', val(r.institution), true)}
       ${kv('العنوان', val(r.address), true)}
       ${isAdmin() ? kv('أضافه', esc(nameOf(r.created_by))) : ''}
       ${kv('تاريخ التسجيل', esc(ymd(r.created_at)))}
@@ -1070,7 +1110,9 @@ function employeeModal(emp){
       <div class="fld"><label>رقم الهاتف *</label><input name="phone" type="tel" required dir="ltr" inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX" value="${esc(e.phone)}"></div>
       <div class="fld"><label>رقم البطاقة (14 رقماً) *</label><input name="national_id" required dir="ltr" inputmode="numeric" maxlength="14" placeholder="14 رقماً" value="${esc(e.national_id)}"></div>
       <div class="fld"><label>تاريخ الميلاد *</label><input name="birth_date" type="date" required dir="ltr" min="1900-01-01" max="${today()}" value="${esc(e.birth_date)}"></div>
-      <div class="fld"><label>المحافظة *</label><select name="governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.governorate)}</select></div>
+      <div class="fld"><label>الجنس *</label><select name="gender" required><option value="">اختر…</option>${opts(GENDERS, e.gender)}</select></div>
+      <div class="fld"><label>محافظة السكن *</label><select name="governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.governorate)}</select></div>
+      <div class="fld"><label>المحافظة التابع لها بالاتحاد *</label><select name="union_governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.union_governorate)}</select></div>
       ${edit ? `<div class="fld"><label>الحالة</label><select name="status"><option value="active"${e.status === 'active' ? ' selected' : ''}>نشط</option><option value="inactive"${e.status === 'inactive' ? ' selected' : ''}>غير نشط</option></select></div>` : ''}
       <div class="fld full"><label>العنوان *</label><input name="address" required maxlength="300" placeholder="المدينة / الحي / الشارع / رقم المبنى" value="${esc(e.address)}"></div>
     </div>
@@ -1078,6 +1120,12 @@ function employeeModal(emp){
     <div class="fld"><label>الصفة *</label><select name="capacity" required><option value="">اختر الصفة…</option>${opts(CAPS, e.capacity)}</select></div>
     <div class="fld" id="commBox" hidden><label>اللجنة / جهة التمثيل *</label>
       <div class="opts" role="radiogroup" aria-label="اللجنة أو جهة التمثيل">${COMMITTEES.map(c => `<label><input type="radio" name="committee" value="${esc(c)}"${e.committee === c ? ' checked' : ''} required><span>${esc(c)}</span></label>`).join('')}</div></div>
+    <div class="fsec">${ic('grad', 16)} البيانات التعليمية</div>
+    <div class="grid">
+      <div class="fld"><label>طالب / خريج *</label><select name="study_status" required><option value="">اختر…</option>${opts(STUDY, e.study_status)}</select></div>
+      <div class="fld"><label>المرحلة التعليمية *</label><select name="edu_stage" required><option value="">اختر المرحلة…</option>${opts(EDU_STAGES, e.edu_stage)}</select></div>
+      <div class="fld full"><label>اسم المدرسة / الجامعة *</label><input name="institution" required maxlength="150" placeholder="مثال: جامعة القاهرة - كلية التجارة" value="${esc(e.institution)}"></div>
+    </div>
     <div class="fsec">${ic('image', 16)} الصور</div>
     <div class="grid">
       <div class="fld"><label>الصورة الشخصية${edit && e.photo_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="photo" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
@@ -1114,7 +1162,12 @@ function employeeModal(emp){
       governorate: f.get('governorate'),
       address: String(f.get('address')).trim(),
       capacity: f.get('capacity'),
-      committee: f.get('committee')
+      committee: f.get('committee'),
+      gender: f.get('gender'),
+      union_governorate: f.get('union_governorate'),
+      study_status: f.get('study_status'),
+      edu_stage: f.get('edu_stage'),
+      institution: String(f.get('institution') || '').replace(/\s+/g, ' ').trim()
     };
     if (!row.membership_no) return bad('رقم العضوية مطلوب');
     if (!/^[\u0621-\u064A\s]+$/.test(row.full_name)) return bad('اكتب الاسم بالعربية فقط (حروف عربية بدون أرقام أو رموز)');
@@ -1127,6 +1180,11 @@ function employeeModal(emp){
     if (!row.address) return bad('العنوان مطلوب');
     if (!CAPS.includes(row.capacity)) return bad('اختر الصفة');
     if (!COMMITTEES.includes(row.committee)) return bad('اختر اللجنة أو جهة التمثيل');
+    if (!GENDERS.includes(row.gender)) return bad('اختر الجنس');
+    if (!GOVS.includes(row.union_governorate)) return bad('اختر المحافظة التابع لها بالاتحاد');
+    if (!STUDY.includes(row.study_status)) return bad('اختر: طالب أو خريج');
+    if (!EDU_STAGES.includes(row.edu_stage)) return bad('اختر المرحلة التعليمية');
+    if (!row.institution) return bad('اسم المدرسة / الجامعة مطلوب');
     if (!edit && !f.get('consent')) return bad('يجب تأكيد موافقة العضو أولاً');
     const dup = empCache.find(x => x.id !== e.id && (x.membership_no === row.membership_no || x.national_id === row.national_id));
     if (dup) return bad(dup.membership_no === row.membership_no ? 'رقم العضوية مستخدم مسبقاً' : 'رقم البطاقة مسجَّل مسبقاً');
@@ -1359,13 +1417,126 @@ async function viewLog(tok){
 }
 
 /* ================= لوحة التحكم (مسؤول) ================= */
-function donut(parts){
+function donut(parts, aria = 'توزيع حالات المهام', unit = 'مهمة'){
   const total = parts.reduce((s, p) => s + p.v, 0), R = 52, C = 2 * Math.PI * R;
   let off = 0;
   const segs = parts.filter(p => p.v > 0).map(p => { const len = p.v / total * C; const s = `<circle class="seg" cx="70" cy="70" r="${R}" style="stroke:${p.c}" data-len="${len.toFixed(2)}" stroke-dasharray="0 1000" stroke-dashoffset="${(-off).toFixed(2)}"></circle>`; off += len; return s; }).join('');
-  return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="توزيع حالات المهام"><circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--line)" stroke-width="16"/><g transform="rotate(-90 70 70)">${segs}</g><text x="70" y="70" text-anchor="middle" class="d-n">${total}</text><text x="70" y="88" text-anchor="middle" class="d-l">مهمة</text></svg>`;
+  return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="${esc(aria)}"><circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--line)" stroke-width="16"/><g transform="rotate(-90 70 70)">${segs}</g><text x="70" y="70" text-anchor="middle" class="d-n">${total}</text><text x="70" y="88" text-anchor="middle" class="d-l">${esc(unit)}</text></svg>`;
 }
 const kpi = (icon, label, val, o = {}) => `<div class="kpi ${o.tone || ''}"><span class="k-ic">${ic(icon, 22)}</span><div><span class="muted">${label}</span>${val == null ? '<b>—</b>' : `<b data-count="${val}" data-dec="${o.dec || 0}" data-suf="${o.suf || ''}">0${o.suf || ''}</b>`}</div></div>`;
+
+/* ---------- مكوّنات تحليل الأعضاء ---------- */
+const AGE_GROUPS = [['أقل من 18', 0, 17], ['من 18 إلى 21', 18, 21], ['من 22 إلى 25', 22, 25], ['من 26 إلى 30', 26, 30], ['من 31 إلى 40', 31, 40], ['أكثر من 40', 41, 200]];
+const COMPLETE_FIELDS = [['رقم العضوية', 'membership_no'], ['رقم الهاتف', 'phone'], ['رقم البطاقة', 'national_id'], ['تاريخ الميلاد', 'birth_date'], ['الجنس', 'gender'],
+  ['محافظة السكن', 'governorate'], ['المحافظة التابع لها بالاتحاد', 'union_governorate'], ['العنوان', 'address'], ['الصفة', 'capacity'], ['اللجنة / جهة التمثيل', 'committee'],
+  ['طالب / خريج', 'study_status'], ['المرحلة التعليمية', 'edu_stage'], ['اسم المدرسة / الجامعة', 'institution'], ['الصورة الشخصية', 'photo_path'], ['صورة الهوية', 'id_doc_path']];
+
+/* أشرطة أفقية: items = [{l, v}] */
+function hbars(items, total){
+  if (!items.length) return emptyBox('layout', 'لا توجد بيانات بعد.');
+  const max = Math.max(1, ...items.map(x => x.v));
+  return `<div class="hb">${items.map(x => `<div class="hb-r"><span class="hb-l" title="${esc(x.l)}">${esc(x.l)}</span><div class="hb-t"><i style="--w:${(x.v / max * 100).toFixed(1)}%"></i></div><b class="hb-v">${x.v}<small class="muted"> ${total ? Math.round(x.v / total * 100) : 0}%</small></b></div>`).join('')}</div>`;
+}
+/* أعمدة رأسية: items = [{l, v}] */
+function colChart(items, aria){
+  const max = Math.max(1, ...items.map(x => x.v));
+  return `<div class="wchart" role="img" aria-label="${esc(aria)}">${items.map((x, i) => `<div class="wg"><div class="bars"><div class="bar b1" style="--h:${(x.v / max * 100).toFixed(0)}%;--d:${i * 50}ms" title="${esc(x.l)}: ${x.v}"><em>${x.v}</em></div></div><small class="muted">${esc(x.l)}</small></div>`).join('')}</div>`;
+}
+/* جدول تفصيل: الإجمالي + ذكور/إناث + طلاب/خريجون لكل قيمة في list */
+function breakTable(rows, list, field, firstLabel, opt = {}){
+  const z = v => v ? v : '<span class="muted">0</span>';
+  const cnt = (m, f, v) => m.filter(r => r[f] === v).length;
+  let groups = list.map(k => ({ k, m: rows.filter(r => r[field] === k) }));
+  groups.sort((a, b) => b.m.length - a.m.length);
+  if (opt.hideZero) groups = groups.filter(x => x.m.length);
+  const unk = rows.filter(r => !r[field]);
+  if (unk.length) groups.push({ k: 'غير محدد', m: unk });
+  if (!groups.length) return emptyBox('layout', 'لا توجد بيانات بعد.');
+  const max = Math.max(1, ...groups.map(x => x.m.length));
+  const tot = f => v => rows.filter(r => r[f] === v).length;
+  return `<div class="tbl${opt.scroll ? ' sc' : ''}"><table><thead><tr><th>${firstLabel}</th><th>الإجمالي</th><th>ذكور</th><th>إناث</th><th>طلاب</th><th>خريجون</th></tr></thead><tbody>
+  ${groups.map((x, i) => `<tr style="--i:${Math.min(i, 12)}"><td><b>${esc(x.k)}</b></td>
+    <td><div class="pr"><div class="hb-t" style="flex:1;min-width:60px"><i style="--w:${(x.m.length / max * 100).toFixed(1)}%"></i></div><b>${x.m.length}</b></div></td>
+    <td>${z(cnt(x.m, 'gender', 'ذكر'))}</td><td>${z(cnt(x.m, 'gender', 'أنثى'))}</td><td>${z(cnt(x.m, 'study_status', 'طالب'))}</td><td>${z(cnt(x.m, 'study_status', 'خريج'))}</td></tr>`).join('')}
+  </tbody><tfoot><tr><th>الإجمالي</th><th>${rows.length}</th><th>${tot('gender')('ذكر')}</th><th>${tot('gender')('أنثى')}</th><th>${tot('study_status')('طالب')}</th><th>${tot('study_status')('خريج')}</th></tr></tfoot></table></div>`;
+}
+/* كل تحليلات الأعضاء في قطعة HTML واحدة (تُعاد رسمها عند تبديل «النشطون فقط») */
+function memberAnalytics(rows){
+  const n = rows.length;
+  if (!n) return `<div class="card">${emptyBox('users', 'لا توجد بيانات أعضاء لتحليلها بعد.')}</div>`;
+  const pct = x => Math.round(x / n * 100);
+  const c = (f, v) => rows.filter(r => r[f] === v).length;
+  const male = c('gender', 'ذكر'), female = c('gender', 'أنثى'), stud = c('study_status', 'طالب'), grad = c('study_status', 'خريج');
+  const active = c('status', 'active');
+  const ages = rows.map(r => ageOf(r.birth_date)).filter(a => a != null);
+  const avgAge = ages.length ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
+  const since = Date.now() - 30 * 864e5;
+  const fresh = rows.filter(r => Date.parse(r.created_at) >= since).length;
+  const incompleteN = rows.filter(r => incomplete(r)).length;
+  const commN = new Set(rows.map(r => r.committee).filter(Boolean)).size;
+
+  const dCard = (title, parts, aria) => {
+    parts = parts.filter(p => p.keep || p.v > 0);
+    return `<div class="card"><h2>${title}</h2><div class="donut-wrap">${donut(parts, aria, 'عضو')}<ul class="leg">${parts.map(p => `<li><i style="background:${p.c}"></i>${p.l}<b>${p.v} <span class="muted">(${pct(p.v)}%)</span></b></li>`).join('')}</ul></div></div>`;
+  };
+
+  // الفئات العمرية
+  const ageItems = AGE_GROUPS.map(([l, a, b]) => ({ l, v: ages.filter(x => x >= a && x <= b).length }));
+  if (n - ages.length > 0) ageItems.push({ l: 'غير محدد', v: n - ages.length });
+
+  // التسجيل الشهري (آخر 12 شهراً)
+  const now = new Date(), months = [];
+  for (let i = 11; i >= 0; i--){ const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
+  const byM = {}; rows.forEach(r => { const k = ymd(r.created_at).slice(0, 7); byM[k] = (byM[k] || 0) + 1; });
+
+  // محافظات السكن
+  const govItems = GOVS.map(g => ({ l: g, v: c('governorate', g) })).filter(x => x.v).sort((a, b) => b.v - a.v);
+  const govUnk = rows.filter(r => !r.governorate).length; if (govUnk) govItems.push({ l: 'غير محدد', v: govUnk });
+
+  // أكثر الجهات التعليمية
+  const inst = {};
+  rows.forEach(r => { if (!r.institution) return; const k = norm(r.institution); (inst[k] = inst[k] || { l: String(r.institution).trim(), v: 0 }).v++; });
+  const instItems = Object.values(inst).sort((a, b) => b.v - a.v).slice(0, 10);
+
+  // اكتمال البيانات
+  const compl = COMPLETE_FIELDS.map(([l, f]) => { const p = pct(rows.filter(r => r[f]).length); return `<div class="hb-r"><span class="hb-l" title="${esc(l)}">${esc(l)}</span><div class="hb-t"><i class="${p >= 90 ? 'ok' : p >= 60 ? 'warn' : 'bad'}" style="--w:${p}%"></i></div><b class="hb-v">${p}%</b></div>`; }).join('');
+
+  return `
+  <div class="kpis">
+    ${kpi('users', 'إجمالي الأعضاء', n)}
+    ${kpi('check', 'النشطون', active, { tone: 'ok' })}
+    ${kpi('user', 'الذكور', male)}
+    ${kpi('user', 'الإناث', female)}
+    ${kpi('grad', 'الطلاب', stud)}
+    ${kpi('grad', 'الخريجون', grad, { tone: 'ok' })}
+    ${kpi('cal', 'متوسط العمر (سنة)', avgAge, { dec: 1 })}
+    ${kpi('briefcase', 'لجان / جهات فيها أعضاء', commN)}
+    ${kpi('plus', 'أعضاء جدد (آخر 30 يوماً)', fresh)}
+    ${kpi('alert', 'سجلات ببيانات ناقصة', incompleteN, { tone: incompleteN ? 'warn' : 'ok' })}
+  </div>
+  <div class="cols">
+    ${dCard('الجنس', [{ v: male, c: 'var(--pri)', l: 'ذكور', keep: 1 }, { v: female, c: '#d6409f', l: 'إناث', keep: 1 }, { v: n - male - female, c: 'var(--mut)', l: 'غير محدد' }], 'توزيع الأعضاء حسب الجنس')}
+    ${dCard('طالب / خريج', [{ v: stud, c: 'var(--ok)', l: 'طلاب', keep: 1 }, { v: grad, c: 'var(--warn)', l: 'خريجون', keep: 1 }, { v: n - stud - grad, c: 'var(--mut)', l: 'غير محدد' }], 'توزيع الأعضاء بين طلاب وخريجين')}
+    ${dCard('حالة العضوية', [{ v: active, c: 'var(--ok)', l: 'نشط', keep: 1 }, { v: n - active, c: 'var(--mut)', l: 'غير نشط', keep: 1 }], 'توزيع الأعضاء حسب الحالة')}
+  </div>
+  <div class="card"><h2>الأعضاء حسب اللجنة / جهة التمثيل</h2>${breakTable(rows, COMMITTEES, 'committee', 'اللجنة / جهة التمثيل')}</div>
+  <div class="cols">
+    <div class="card"><h2>الأعضاء حسب الصفة</h2>${breakTable(rows, CAPS, 'capacity', 'الصفة')}</div>
+    <div class="card"><h2>الأعضاء حسب المرحلة التعليمية</h2>${breakTable(rows, EDU_STAGES, 'edu_stage', 'المرحلة')}</div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2>المحافظة التابع لها بالاتحاد</h2>${breakTable(rows, GOVS, 'union_governorate', 'المحافظة', { hideZero: true, scroll: true })}</div>
+    <div class="card"><h2>محافظة السكن</h2><div class="sc">${hbars(govItems, n)}</div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2>الفئات العمرية</h2>${hbars(ageItems, n)}</div>
+    <div class="card"><h2>التسجيل الشهري <span class="muted">آخر 12 شهراً</span></h2>${colChart(months.map(k => ({ l: k.slice(2), v: byM[k] || 0 })), 'عدد الأعضاء المسجَّلين في كل شهر')}</div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2>أكثر الجهات التعليمية <span class="muted">أعلى 10</span></h2>${hbars(instItems, n)}</div>
+    <div class="card"><h2>اكتمال البيانات <span class="muted">نسبة الأعضاء المسجَّل لهم كل حقل</span></h2><div class="hb">${compl}</div></div>
+  </div>`;
+}
 
 async function viewDashboard(tok){
   const [emps, tasks, perf, eng, logs] = await Promise.all([
@@ -1390,9 +1561,11 @@ async function viewDashboard(tok){
   const en = id => (emps.find(e => e.id === id) || {}).full_name || '—';
 
   if (!paint(tok, `
+  <div class="dsec"><h2>${ic('users', 20)} تحليل الأعضاء</h2>
+    <div class="chips" id="anc"><button data-v="all" class="on">كل الأعضاء</button><button data-v="active">النشطون فقط</button></div></div>
+  <div id="memAn">${memberAnalytics(emps)}</div>
+  <div class="dsec"><h2>${ic('tasks', 20)} المهام والتفاعل والأداء</h2></div>
   <div class="kpis">
-    ${kpi('users', 'إجمالي الأعضاء', emps.length)}
-    ${kpi('check', 'الأعضاء النشطون', emps.filter(e => e.status === 'active').length, { tone: 'ok' })}
     ${kpi('tasks', 'إجمالي المهام', tasks.length)}
     ${kpi('check', 'التسليم في الوقت', pct, { suf: '%', tone: 'ok' })}
     ${kpi('alert', 'مهام متأخرة', cnt.overdue, { tone: cnt.overdue ? 'bad' : 'ok' })}
@@ -1419,7 +1592,15 @@ async function viewDashboard(tok){
     <p class="muted" style="margin:12px 0 0">ملفات Excel منسّقة (عناوين ملوّنة، تصفية وتجميد للعناوين، جاهزة للطباعة) وتحمل نفس بيانات الموقع بدون صور. الصور تُنزَّل من نافذة بيانات العضو (زر التنزيل بجانب كل صورة).</p>
     <p class="muted" style="margin-bottom:0">النسخ الاحتياطي: الخطة المجانية في Supabase لا تتضمن نسخاً تلقائية، فصدّر البيانات دورياً واحفظها في مكان آمن ومحدود الوصول.</p></div>`)) return;
 
-  setTimeout(() => $$('.seg').forEach(c => { c.style.strokeDasharray = c.dataset.len + ' 1000'; }), 80);
+  const growSegs = root => setTimeout(() => $$('.seg', root).forEach(c => { c.style.strokeDasharray = c.dataset.len + ' 1000'; }), 80);
+  growSegs(document);
+  $('#anc').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('#anc button').forEach(x => x.classList.toggle('on', x === b));
+    const el = $('#memAn');
+    el.innerHTML = memberAnalytics(b.dataset.v === 'active' ? emps.filter(r => r.status === 'active') : emps);
+    countUp(el); growSegs(el);
+  };
   const stamp = today();
   const fetchLogs = () => db(sb.from('access_log').select('*').order('at', { ascending: false }).limit(5000));
   $('#xE').onclick = e => exportXlsx(`members_${stamp}.xlsx`, [empSheet(emps)], e.currentTarget);

@@ -1,8 +1,9 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.1 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.2 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
--- الجديد في 3.1: عمود تاريخ الميلاد (birth_date) مع قيد على صحته.
+-- 3.1: عمود تاريخ الميلاد (birth_date).
+-- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -117,6 +118,11 @@ create table if not exists public.employees (
   address       text,
   national_id   text,
   birth_date    date,
+  gender        text,
+  union_governorate text,
+  study_status  text,
+  edu_stage     text,
+  institution   text,
   capacity      text,
   committee     text,
   status        text not null default 'active' check (status in ('active','inactive')),
@@ -146,7 +152,12 @@ alter table public.employees add column if not exists membership_no text;
 alter table public.employees add column if not exists governorate   text;
 alter table public.employees add column if not exists address       text;
 alter table public.employees add column if not exists national_id   text;
-alter table public.employees add column if not exists birth_date    date;   -- [جديد 3.1]
+alter table public.employees add column if not exists birth_date    date;   -- [3.1]
+alter table public.employees add column if not exists gender        text;   -- [جديد 3.2] ذكر / أنثى
+alter table public.employees add column if not exists union_governorate text; -- [جديد 3.2] المحافظة التابع لها بالاتحاد
+alter table public.employees add column if not exists study_status  text;   -- [جديد 3.2] طالب / خريج
+alter table public.employees add column if not exists edu_stage     text;   -- [جديد 3.2] المرحلة التعليمية
+alter table public.employees add column if not exists institution   text;   -- [جديد 3.2] اسم المدرسة / الجامعة
 alter table public.employees add column if not exists capacity      text;
 alter table public.employees add column if not exists committee     text;
 alter table public.employees add column if not exists department    text;
@@ -413,6 +424,37 @@ begin
     alter table public.employees add constraint employees_birth_chk
       check (birth_date is null or birth_date between date '1900-01-01' and date '2100-01-01') not valid;
   end if;
+
+  -- [جديد 3.2] الجنس
+  if not exists (select 1 from pg_constraint where conname = 'employees_gender_chk') then
+    alter table public.employees add constraint employees_gender_chk
+      check (gender is null or gender in ('ذكر','أنثى')) not valid;
+  end if;
+  -- [جديد 3.2] طالب / خريج
+  if not exists (select 1 from pg_constraint where conname = 'employees_study_chk') then
+    alter table public.employees add constraint employees_study_chk
+      check (study_status is null or study_status in ('طالب','خريج')) not valid;
+  end if;
+  -- [جديد 3.2] المرحلة التعليمية
+  if not exists (select 1 from pg_constraint where conname = 'employees_edu_chk') then
+    alter table public.employees add constraint employees_edu_chk
+      check (edu_stage is null or edu_stage in ('إعدادي','ثانوي','دبلوم / معهد','جامعي','دراسات عليا','دكتوراه')) not valid;
+  end if;
+  -- [جديد 3.2] اسم المدرسة / الجامعة
+  if not exists (select 1 from pg_constraint where conname = 'employees_inst_len') then
+    alter table public.employees add constraint employees_inst_len
+      check (institution is null or char_length(institution) <= 150) not valid;
+  end if;
+  -- [جديد 3.2] المحافظة التابع لها بالاتحاد (نفس قائمة المحافظات الـ27)
+  if not exists (select 1 from pg_constraint where conname = 'employees_union_gov_chk') then
+    alter table public.employees add constraint employees_union_gov_chk
+      check (union_governorate is null or union_governorate in (
+        'القاهرة','الجيزة','الإسكندرية','القليوبية','الشرقية','الدقهلية','الغربية','المنوفية',
+        'البحيرة','كفر الشيخ','دمياط','بورسعيد','الإسماعيلية','السويس','شمال سيناء','جنوب سيناء',
+        'الفيوم','بني سويف','المنيا','أسيوط','سوهاج','قنا','الأقصر','أسوان',
+        'البحر الأحمر','الوادي الجديد','مطروح'
+      )) not valid;
+  end if;
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -479,5 +521,5 @@ notify pgrst, 'reload schema';
 --   update public.profiles set role = 'admin' where email = 'your@email.com';
 --
 -- إذا كنت تُرقّي نظاماً قائماً: يكفي تشغيل هذا الملف مرة أخرى، ولا حاجة لشيء آخر.
--- الأعضاء المسجَّلون سابقاً يظهر عليهم وسم «بيانات ناقصة» حتى يُستكمل تاريخ ميلادهم.
+-- الأعضاء المسجَّلون سابقاً يظهر عليهم وسم «بيانات ناقصة» حتى تُستكمل الحقول الجديدة.
 -- =====================================================================
