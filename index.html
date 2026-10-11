@@ -16,241 +16,274 @@
 (function(){try{var t=localStorage.getItem('hr-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();
 </script>
 <style>
+/* =====================================================================
+   نظام التصميم — الإصدار 3.3
+   مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
+   ===================================================================== */
 :root{
-  --bg:#f3f5fa;--surface:#fff;--surface2:#f6f7fb;--ink:#141b2d;--mut:#667085;--line:#e4e8f0;
-  --pri:#3b5bdb;--pri2:#6741d9;--pri-soft:#e8edff;--on-pri:#fff;--ring:rgba(59,91,219,.18);
-  --ok:#12805c;--ok-soft:#dcf5ea;--bad:#c92a2a;--bad-soft:#ffe3e3;--warn:#b45f06;--warn-soft:#fff0d6;
-  --glass:rgba(255,255,255,.82);--glow:rgba(103,65,217,.08);
-  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px -8px rgba(16,24,40,.08);
-  --r:14px;--ease:cubic-bezier(.2,.8,.2,1);color-scheme:light
+  --bg:#f3f5f9;--surface:#fff;--surface2:#f6f7fb;--ink:#141b2d;--mut:#5d6a80;--line:#e3e7ee;
+  --pri:#3b5bdb;--pri2:#6741d9;--pri-soft:#e8edff;--on-pri:#fff;--ring:rgba(59,91,219,.2);
+  --ok:#12805c;--ok-soft:#dcf5ea;--bad:#c92a2a;--bad-soft:#ffe3e3;--warn:#a85a05;--warn-soft:#fff0d6;
+  --glass:rgba(255,255,255,.9);
+  --shadow:0 1px 2px rgba(16,24,40,.05);
+  --shadow-lg:0 24px 60px -20px rgba(16,24,40,.4);
+  --r:12px;--r-ctl:10px;--r-lg:18px;--ease:cubic-bezier(.2,.8,.2,1);
+  --h-ctl:42px;--h-sm:34px;--side:248px;--top:64px;--gut:28px;--max:1320px;
+  color-scheme:light
 }
 [data-theme=dark]{
-  --bg:#0d1220;--surface:#151c2e;--surface2:#1b2438;--ink:#e8ecf6;--mut:#93a0b8;--line:#27324b;
-  --pri:#7b97ff;--pri2:#9a80ff;--pri-soft:#202b52;--on-pri:#0b1226;--ring:rgba(123,151,255,.28);
+  --bg:#0d1220;--surface:#151c2e;--surface2:#1b2438;--ink:#e8ecf6;--mut:#97a4bc;--line:#27324b;
+  --pri:#7b97ff;--pri2:#9a80ff;--pri-soft:#202b52;--on-pri:#0b1226;--ring:rgba(123,151,255,.3);
   --ok:#4cd9a0;--ok-soft:#113a2c;--bad:#ff8585;--bad-soft:#44191e;--warn:#ffb457;--warn-soft:#3d2c10;
-  --glass:rgba(21,28,46,.82);--glow:rgba(123,151,255,.07);
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -8px rgba(0,0,0,.45);color-scheme:dark
+  --glass:rgba(21,28,46,.9);
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  --shadow-lg:0 24px 60px -20px rgba(0,0,0,.65);
+  color-scheme:dark
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{scroll-behavior:smooth}
-body{margin:0;font-family:"Tajawal","Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s;
-  background-image:radial-gradient(900px 420px at 100% -10%,var(--glow),transparent 70%)}
+body{margin:0;font-family:"Tajawal","Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
 body.noscroll{overflow:hidden}
-h1,h2,h3,h4{font-weight:800}
+h1,h2,h3,h4{font-weight:800;line-height:1.4;margin:0}
 a{color:var(--pri)}
 .ic{flex:none;vertical-align:middle}
 .muted{color:var(--mut);font-size:13px}
+.c{text-align:center}
 :focus-visible{outline:2px solid var(--pri);outline-offset:2px}
 
 /* ---------- أزرار ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,var(--pri),var(--pri2));color:var(--on-pri);border:0;padding:10px 18px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700;position:relative;transition:transform .15s var(--ease),box-shadow .2s,filter .2s,opacity .2s,background .2s;box-shadow:0 6px 16px -6px rgba(59,91,219,.55);text-decoration:none}
-.btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
-.btn:active{transform:scale(.96)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--h-ctl);padding:0 18px;border:0;border-radius:var(--r-ctl);background:var(--pri);color:var(--on-pri);font:inherit;font-size:14.5px;font-weight:700;line-height:1.2;cursor:pointer;position:relative;white-space:nowrap;text-decoration:none;box-shadow:0 4px 12px -5px rgba(59,91,219,.55);transition:transform .15s var(--ease),filter .2s,opacity .2s,background .2s,color .2s}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:scale(.97)}
 .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .btn.block{width:100%}
-.btn.sec{background:var(--surface2);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.btn.sec{background:var(--surface);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.btn.sec:hover{background:var(--surface2);filter:none}
 .btn.ghost{background:transparent;color:var(--mut);box-shadow:none}
-.btn.ghost:hover{background:var(--surface2);color:var(--ink)}
+.btn.ghost:hover{background:var(--surface2);color:var(--ink);filter:none}
 .btn.danger{background:var(--bad-soft);color:var(--bad);box-shadow:none}
-.btn.icon{padding:8px;border-radius:10px}
-.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
-.btn.sm.icon{padding:6px}
+.btn.icon{width:var(--h-ctl);padding:0}
+.btn.sm{min-height:var(--h-sm);padding:0 12px;font-size:13.5px;border-radius:8px}
+.btn.sm.icon{width:var(--h-sm);padding:0}
 .btn.loading{color:transparent!important;pointer-events:none}
 .btn.loading .ic{opacity:0}
 .btn.loading::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--on-pri);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
 .btn.sec.loading::after,.btn.ghost.loading::after,.btn.danger.loading::after{border-color:var(--ink);border-top-color:transparent}
 
 /* ---------- حقول ---------- */
-input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--surface);color:var(--ink);transition:border-color .2s,box-shadow .2s}
+input,select,textarea{width:100%;min-height:var(--h-ctl);padding:0 12px;border:1px solid var(--line);border-radius:var(--r-ctl);font:inherit;font-size:14.5px;background:var(--surface);color:var(--ink);transition:border-color .2s,box-shadow .2s}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--pri);box-shadow:0 0 0 4px var(--ring)}
-input[type=checkbox],input[type=radio]{width:auto}
-input[type=file]{padding:7px}
-textarea{min-height:84px;resize:vertical}
-.fld>label{display:block;font-size:13px;color:var(--mut);margin-bottom:5px;font-weight:500}
-.fld+.fld{margin-top:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+input[type=checkbox],input[type=radio]{width:auto;min-height:0}
+input[type=file]{padding:8px 10px}
+input[type=date],input[type=month]{text-align:start}
+select{appearance:none;-webkit-appearance:none;padding-left:36px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238792a6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:left 12px center}
+textarea{min-height:96px;padding:10px 12px;resize:vertical;line-height:1.7}
+::placeholder{color:#9aa4b6}
+.fld>label{display:block;font-size:13px;color:var(--mut);margin-bottom:6px;font-weight:500}
+.fld+.fld{margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.grid>.fld{margin-top:0}
 .grid .full{grid-column:1/-1}
-.grid+.fld{margin-top:14px}
-.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:16px 0 0;cursor:pointer}
-.consent input{margin-top:5px}
-.prev{display:block;max-height:90px;margin-top:8px;border-radius:10px;border:1px solid var(--line)}
+.grid .span2{grid-column:span 2}
+.fld.narrow{max-width:340px}
+.grid+.fld,.grid+.grid{margin-top:16px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:20px 0 0;cursor:pointer;padding:12px 14px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-ctl)}
+.consent input{margin-top:6px}
+.prev{display:block;max-height:96px;margin-top:8px;border-radius:var(--r-ctl);border:1px solid var(--line)}
 .pwrap{position:relative}
 .pwrap .btn{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%)}
+.pwrap .btn:active{transform:translateY(-50%) scale(.97)}
 .pwrap input{padding-inline-end:46px}
-hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+hr{border:0;border-top:1px solid var(--line);margin:24px 0}
 
 /* عناوين أقسام النموذج */
-.fsec{display:flex;align-items:center;gap:10px;margin:22px 0 12px;font-size:14px;font-weight:800;color:var(--pri)}
+.fsec{display:flex;align-items:center;gap:10px;margin:30px 0 16px;font-size:14.5px;font-weight:800;color:var(--ink)}
 .fsec:first-child{margin-top:0}
+.fsec .ic{color:var(--pri)}
 .fsec::after{content:"";flex:1;height:1px;background:var(--line)}
 
 /* أزرار اختيار اللجنة */
-.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .opts label{margin:0;cursor:pointer;position:relative;display:block}
 .opts input{position:absolute;opacity:0;pointer-events:none}
-.opts span{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);font-size:14px;color:var(--ink);transition:all .2s var(--ease);height:100%}
+.opts span{display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 14px;border:1.5px solid var(--line);border-radius:var(--r-ctl);background:var(--surface);font-size:14px;color:var(--ink);transition:border-color .2s,background .2s,box-shadow .2s;height:100%}
 .opts span::before{content:"";width:16px;height:16px;border-radius:50%;border:2px solid var(--line);flex:none;transition:all .2s}
-.opts label:hover span{transform:translateY(-1px);border-color:var(--pri)}
+.opts label:hover span{border-color:var(--pri)}
 .opts input:checked+span{border-color:var(--pri);background:var(--pri-soft);color:var(--pri);font-weight:700;box-shadow:0 0 0 3px var(--ring)}
 .opts input:checked+span::before{border-color:var(--pri);background:radial-gradient(circle,var(--pri) 45%,transparent 50%)}
 .opts input:focus-visible+span{outline:2px solid var(--pri);outline-offset:2px}
 
 /* ---------- بطاقات وحركات ---------- */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
-.card h2{margin:0 0 14px;font-size:16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-.rise{animation:rise .55s var(--ease) both;animation-delay:calc(var(--i,0)*60ms)}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card.flush{padding:0;overflow:hidden}
+.card h2{margin:0 0 16px;font-size:15.5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 .muted{font-weight:400}
+.rise{animation:fade .3s both}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fade{from{opacity:0}}
 @keyframes fadeout{to{opacity:0}}
-@keyframes pop{from{opacity:0;transform:translateY(20px) scale(.96)}}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.97)}}
 @keyframes shimmer{to{background-position:-200% 0}}
 @keyframes shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
-@keyframes float{50%{transform:translate(30px,40px) scale(1.08)}}
 @keyframes grow{from{transform:scaleY(0)}}
 @keyframes fillw{from{transform:scaleX(0)}}
-@keyframes tin{from{opacity:0;transform:translateY(20px) scale(.95)}}
-@keyframes tout{to{opacity:0;transform:translateY(10px) scale(.95)}}
-@keyframes pulse{50%{box-shadow:0 0 0 12px transparent}}
+@keyframes tin{from{opacity:0;transform:translateY(16px) scale(.96)}}
+@keyframes tout{to{opacity:0;transform:translateY(8px) scale(.96)}}
 .sk{background:linear-gradient(90deg,var(--surface2) 25%,var(--line) 50%,var(--surface2) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:8px}
+#list>.sk{margin-inline:18px}
+#list>.sk:first-child{margin-top:18px}
 
-/* ---------- دخول ---------- */
-.auth{min-height:100vh;display:grid;place-items:center;padding:20px;position:relative;overflow:hidden}
-.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.5;animation:float 14s ease-in-out infinite}
-.blob.a{width:440px;height:440px;background:var(--pri);top:-140px;inset-inline-end:-120px}
-.blob.b{width:380px;height:380px;background:var(--pri2);bottom:-140px;inset-inline-start:-100px;animation-delay:-6s}
-.auth-card{position:relative;width:min(400px,100%);background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:30px 26px;box-shadow:0 30px 70px -25px rgba(20,27,45,.4);animation:rise .7s var(--ease) both}
-.auth-card.shake{animation:shake .4s}
-.auth-card h1{margin:14px 0 2px;font-size:22px;text-align:center}
-.auth-card .muted{text-align:center;margin:0 0 20px}
-.auth-card .btn{margin-top:18px}
-.logo{width:58px;height:58px;border-radius:18px;margin:0 auto;display:grid;place-items:center;background:linear-gradient(135deg,var(--pri),var(--pri2));color:var(--on-pri);animation:pulse 2.6s infinite;box-shadow:0 10px 24px -8px rgba(59,91,219,.6)}
-.c{text-align:center}
+/* ---------- شعار ---------- */
+.logo{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--pri);color:var(--on-pri);flex:none}
+
+/* ---------- صفحة الدخول ---------- */
+.login{min-height:100vh;display:grid;grid-template-columns:minmax(380px,5fr) minmax(0,6fr);background:var(--bg)}
+.login-brand{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;gap:40px;padding:44px 52px;background:#0f1b3d;color:#c3cce3}
+.login-brand::before,.login-brand::after{content:"";position:absolute;border-radius:50%;pointer-events:none;border:1px solid rgba(255,255,255,.09)}
+.login-brand::before{width:520px;height:520px;inset-inline-end:-210px;bottom:-230px;box-shadow:0 0 0 64px rgba(255,255,255,.025),0 0 0 128px rgba(255,255,255,.018)}
+.login-brand::after{width:240px;height:240px;inset-inline-start:-110px;top:-100px}
+.login-brand>*{position:relative;z-index:1}
+.lb-top{display:flex;align-items:center;gap:12px}
+.lb-top .logo{background:rgba(255,255,255,.12);color:#fff}
+.lb-top b{font-size:17px;color:#fff}
+.lb-body{max-width:470px}
+.lb-body h2{font-size:30px;line-height:1.5;color:#fff;margin-bottom:32px;text-wrap:balance}
+.lb-list{list-style:none;padding:0;margin:0;display:grid;gap:22px}
+.lb-list li{display:flex;gap:14px;align-items:flex-start;font-size:14.5px;line-height:1.75}
+.lb-list .ic-w{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.09);display:grid;place-items:center;flex:none;color:#9db4ff}
+.lb-list b{display:block;color:#fff;font-size:15.5px;margin-bottom:2px}
+.lb-foot{margin:0;font-size:13px;color:#8fa0c4}
+.login-form{position:relative;display:grid;place-items:center;padding:40px 24px}
+.login-theme{position:absolute;top:20px;inset-inline-end:20px}
+.lf-card{width:min(400px,100%);animation:fade .4s both}
+.lf-card.shake{animation:shake .4s}
+.lf-card h1{font-size:26px;margin-bottom:6px}
+.lf-card .sub{color:var(--mut);margin:0 0 30px}
+.lf-card .btn.block{margin-top:24px;min-height:46px;font-size:15.5px}
+/* شاشة خطأ الإعداد */
+.auth{min-height:100vh;display:grid;place-items:center;padding:20px}
+.auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:32px 28px;box-shadow:var(--shadow-lg)}
+.auth-card .logo{margin:0 auto 16px}
+.auth-card h1{font-size:21px;text-align:center;margin-bottom:6px}
+.auth-card .muted{text-align:center;margin:0}
 
 /* ---------- الهيكل ---------- */
-.shell{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
-.side{position:sticky;top:0;height:100vh;background:var(--surface);border-inline-end:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:18px}
-.brand{display:flex;align-items:center;gap:10px;padding:4px 8px}
-.brand .logo{width:38px;height:38px;border-radius:12px;margin:0;animation:none}
-.brand b{font-size:15.5px}
+.shell{display:grid;grid-template-columns:var(--side) minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;background:var(--surface);border-inline-end:1px solid var(--line);padding:20px 16px;display:flex;flex-direction:column;gap:24px}
+.brand{display:flex;align-items:center;gap:12px;padding:0 8px;min-height:44px}
+.brand .logo{width:40px;height:40px;border-radius:12px}
+.brand b{font-size:16px}
 #nav{display:flex;flex-direction:column;gap:4px}
-.nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--mut);text-decoration:none;font-weight:500;position:relative;transition:background .2s,color .2s,transform .2s var(--ease)}
-.nav-i:hover{background:var(--surface2);color:var(--ink);transform:translateX(-3px)}
+.nav-i{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-radius:var(--r-ctl);color:var(--mut);text-decoration:none;font-weight:500;font-size:14.5px;position:relative;transition:background .2s,color .2s}
+.nav-i:hover{background:var(--surface2);color:var(--ink)}
 .nav-i.on{background:var(--pri-soft);color:var(--pri);font-weight:700}
-.nav-i.on::before{content:"";position:absolute;inset-inline-start:-14px;top:22%;bottom:22%;width:4px;border-radius:4px;background:var(--pri);animation:grow .4s var(--ease)}
+.nav-i.on::before{content:"";position:absolute;inset-inline-start:-16px;top:10px;bottom:10px;width:4px;border-radius:4px;background:var(--pri)}
 .side-foot{margin-top:auto;text-align:center}
 .content{min-width:0}
-.top{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 26px;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.top h1{margin:0;font-size:19px}
+.top{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:var(--top);padding:0 var(--gut);background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top h1{font-size:19px}
 .top-r{display:flex;align-items:center;gap:6px}
-.user{display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--line);border-radius:99px;padding:4px;padding-inline-end:14px;cursor:pointer;font:inherit;color:var(--ink);transition:background .2s}
+.user{display:flex;align-items:center;gap:10px;height:var(--h-ctl);background:transparent;border:1px solid var(--line);border-radius:99px;padding:0 4px;padding-inline-end:14px;cursor:pointer;font:inherit;color:var(--ink);transition:background .2s}
 .user:hover{background:var(--surface2)}
-.user .nm{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-main.view{padding:22px 26px 48px;max-width:1280px;margin:0 auto}
+.user .av{width:32px;height:32px;font-size:13px}
+.user .nm{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+main.view{padding:24px var(--gut) 56px;max-width:var(--max);margin:0 auto}
 
-/* ---------- أدوات الشريط ---------- */
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+/* ---------- رأس الصفحة وأدوات الشريط ---------- */
+.ph{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;margin-bottom:20px}
+.ph-sub{margin:0;color:var(--mut);font-size:14.5px;max-width:62ch}
+.ph-act{display:flex;gap:10px;flex-wrap:wrap}
+.toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .toolbar.tight{margin-bottom:10px}
-.search{position:relative;flex:1;min-width:220px;max-width:360px}
-.search .ic{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);color:var(--mut)}
-.search input{padding-inline-start:38px}
-.chips{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);padding:4px;border-radius:12px}
-.chips button{border:0;background:transparent;color:var(--mut);padding:6px 13px;border-radius:9px;cursor:pointer;font:inherit;font-size:13px;transition:all .2s}
-.chips button:hover{color:var(--ink)}
-.chips button.on{background:var(--pri-soft);color:var(--pri);font-weight:700}
-.chips small{opacity:.75;margin-inline-start:3px}
 .toolbar .end{margin-inline-start:auto}
-.toolbar .end~.btn{margin-inline-start:0}
-/* فلاتر المحافظة والصفة واللجنة */
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-.filters select{width:auto;min-width:165px;max-width:260px;flex:1 1 165px}
-.filters select.on{border-color:var(--pri);background:var(--pri-soft);color:var(--pri);font-weight:700}
-
-/* ---------- تحليل الأعضاء في الداشبورد ---------- */
-.dsec{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
-.dsec:not(:first-child){margin-top:30px}
-.dsec h2{margin:0;font-size:18px;display:flex;align-items:center;gap:8px}
-.hb{display:grid;gap:11px}
-.hb-r{display:grid;grid-template-columns:minmax(110px,36%) 1fr 70px;align-items:center;gap:10px;font-size:14px}
-.hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hb-t{height:10px;background:var(--surface2);border-radius:9px;overflow:hidden}
-.hb-t i{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--pri),var(--pri2));border-radius:9px;transform-origin:right;animation:fillw 1s var(--ease) both}
-.hb-t i.ok{background:linear-gradient(90deg,var(--ok),#34d399)}
-.hb-t i.warn{background:linear-gradient(90deg,var(--warn),#fbbf24)}
-.hb-t i.bad{background:linear-gradient(90deg,var(--bad),#fb7185)}
-.hb-v{text-align:end;font-weight:800;white-space:nowrap}
-.hb-v small{font-weight:400;font-size:11.5px}
-.sc{max-height:380px;overflow:auto;padding-inline-end:4px}
-.card h2 .muted{font-weight:400}
-tfoot th{border-top:2px solid var(--line);border-bottom:0;color:var(--ink);font-size:13.5px}
-@media (max-width:640px){.hb-r{grid-template-columns:minmax(90px,38%) 1fr 62px}}
+.search{position:relative;flex:1 1 280px;min-width:220px;max-width:420px}
+.search .ic{position:absolute;inset-inline-start:13px;top:50%;transform:translateY(-50%);color:var(--mut);pointer-events:none}
+.search input{padding-inline-start:40px}
+.chips{display:inline-flex;gap:4px;background:var(--surface2);border:1px solid var(--line);padding:3px;border-radius:12px}
+.chips button{border:0;background:transparent;color:var(--mut);min-height:34px;padding:0 14px;border-radius:9px;cursor:pointer;font:inherit;font-size:13.5px;transition:background .2s,color .2s}
+.chips button:hover{color:var(--ink)}
+.chips button.on{background:var(--surface);color:var(--pri);font-weight:700;box-shadow:0 1px 3px rgba(16,24,40,.1)}
+.chips small{opacity:.75;margin-inline-start:4px}
+/* لوحة البحث والتصفية */
+.fbar{padding:16px 18px;display:grid;gap:14px}
+.fbar-top{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.fbar-cnt{margin-inline-start:auto}
+.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.filters select{max-width:none}
+.filters select.on{border-color:var(--pri);background-color:var(--pri-soft);color:var(--pri);font-weight:700}
 
 /* ---------- جداول ---------- */
 .tbl{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{text-align:start;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
-th{color:var(--mut);font-weight:700;font-size:12.5px;white-space:nowrap;background:var(--surface2)}
-th:first-child{border-start-start-radius:10px}th:last-child{border-start-end-radius:10px}
-tbody tr{transition:background .15s;animation:rise .45s var(--ease) both;animation-delay:calc(var(--i,0)*35ms)}
+th,td{text-align:start;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--mut);font-weight:700;font-size:12.5px;white-space:nowrap;background:var(--surface2);height:42px}
+tbody tr{transition:background .15s}
 tbody tr:hover{background:var(--surface2)}
 tbody tr:last-child td{border-bottom:0}
-.who{display:flex;align-items:center;gap:10px;min-width:190px}
+tfoot th{border-top:2px solid var(--line);border-bottom:0;color:var(--ink);font-size:13.5px}
+.sc{max-height:380px;overflow:auto;padding-inline-end:4px}
+.sc thead th{position:sticky;top:0;z-index:1}
+.who{display:flex;align-items:center;gap:12px;min-width:220px}
 button.who{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:start;cursor:pointer}
 button.who:hover b{color:var(--pri)}
-.av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--pri2));color:var(--on-pri);display:grid;place-items:center;font-weight:800;font-size:14px;overflow:hidden;flex:none}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--pri2));color:var(--on-pri);display:grid;place-items:center;font-weight:800;font-size:14px;overflow:hidden;flex:none}
 .av img{width:100%;height:100%;object-fit:cover;animation:fade .4s}
 .row-actions{display:flex;gap:4px;flex-wrap:nowrap;justify-content:flex-end}
-.more{text-align:center;padding-top:14px}
-.tag{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.more{text-align:center;padding:16px;border-top:1px solid var(--line)}
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;line-height:1.5;font-weight:700;white-space:nowrap}
 .tag.ok{background:var(--ok-soft);color:var(--ok)}
 .tag.bad{background:var(--bad-soft);color:var(--bad)}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
 .tag.info{background:var(--pri-soft);color:var(--pri)}
 .tag.mut{background:var(--surface2);color:var(--mut)}
-.empty{text-align:center;padding:38px 12px;color:var(--mut)}
-.empty .ic{opacity:.45;margin-bottom:8px}
-.empty p{margin:0 0 12px}
+.empty{text-align:center;padding:44px 16px;color:var(--mut)}
+.empty .ic{opacity:.45;margin-bottom:10px}
+.empty p{margin:0 0 14px}
 
 /* ---------- نافذة بيانات العضو ---------- */
-.d-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
-.d-head .av{width:58px;height:58px;font-size:20px}
-.d-head h4{margin:0 0 4px;font-size:18px}
+.d-head{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.d-head .av{width:60px;height:60px;font-size:21px}
+.d-head h4{margin:0 0 6px;font-size:19px}
 .d-head .tags{display:flex;gap:6px;flex-wrap:wrap}
-.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0}
-.kv>div{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
-.kv dt{font-size:12px;color:var(--mut);margin-bottom:1px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0}
+.kv>div{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 14px}
+.kv dt{font-size:12px;color:var(--mut);margin-bottom:2px}
 .kv dd{margin:0;font-weight:700;word-break:break-word}
 .kv .full{grid-column:1/-1}
-.pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:16px}
-.pcard{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface2)}
-.pc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;font-weight:700;font-size:14px;border-bottom:1px solid var(--line);background:var(--surface)}
+.pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:20px}
+.pcard{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface2)}
+.pc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:50px;padding:8px 14px;font-weight:700;font-size:14px;border-bottom:1px solid var(--line);background:var(--surface)}
 .pc-act{display:flex;gap:6px}
-.pbox{min-height:190px;display:grid;place-items:center;padding:12px;color:var(--mut);font-size:13px;text-align:center}
-.pbox img{max-width:100%;max-height:320px;border-radius:10px;animation:fade .4s}
+.pbox{min-height:200px;display:grid;place-items:center;padding:14px;color:var(--mut);font-size:13px;text-align:center}
+.pbox img{max-width:100%;max-height:320px;border-radius:var(--r-ctl);animation:fade .4s}
 
 /* ---------- لوحة التحكم ---------- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;gap:13px;align-items:center;box-shadow:var(--shadow);transition:transform .25s var(--ease),box-shadow .25s}
-.kpi:hover{transform:translateY(-3px)}
-.k-ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--pri-soft);color:var(--pri);flex:none}
+.dsec{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:32px 0 16px}
+.ph+.dsec{margin-top:4px}
+.dsec h2{font-size:18px;display:flex;align-items:center;gap:10px}
+.dsec h2 .ic{color:var(--pri)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow)}
+.k-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--pri-soft);color:var(--pri);flex:none}
 .kpi.ok .k-ic{background:var(--ok-soft);color:var(--ok)}
 .kpi.bad .k-ic{background:var(--bad-soft);color:var(--bad)}
 .kpi.warn .k-ic{background:var(--warn-soft);color:var(--warn)}
-.kpi b{display:block;font-size:26px;line-height:1.2;font-weight:800}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.kpi b{display:block;font-size:26px;line-height:1.25;font-weight:800}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:16px}
+.cols>*{min-width:0}
 .cols>.card{margin-bottom:0}
-.cols+.card,.cols+.cols,.card+.cols{margin-top:16px}
-.donut-wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center}
+.cols+.card,.cols+.cols,.card+.cols,.kpis+.cols{margin-top:16px}
+.donut-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center}
 .donut{width:164px;height:164px}
 .seg{transition:stroke-dasharray 1.1s var(--ease);fill:none;stroke-width:16}
 .d-n{font-size:26px;font-weight:800;fill:var(--ink)}
 .d-l{font-size:11px;fill:var(--mut)}
-.leg{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:14px}
+.leg{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:14px}
 .leg li{display:flex;align-items:center;gap:8px}
 .leg i{width:11px;height:11px;border-radius:4px;flex:none}
 .leg b{margin-inline-start:auto;padding-inline-start:14px}
-.wchart{display:flex;gap:14px;align-items:flex-end;justify-content:space-around;padding-top:24px;overflow-x:auto}
+.wchart{display:flex;gap:14px;align-items:flex-end;justify-content:space-around;padding-top:26px;overflow-x:auto}
 .wg{display:flex;flex-direction:column;align-items:center;gap:6px}
 .bars{height:150px;display:flex;align-items:flex-end;gap:4px}
 .bar{position:relative;width:20px;height:var(--h);border-radius:7px 7px 3px 3px;transform-origin:bottom;animation:grow .9s var(--ease) both;animation-delay:var(--d,0ms)}
@@ -265,78 +298,110 @@ button.who:hover b{color:var(--pri)}
 .prog i.warn{background:linear-gradient(90deg,var(--warn),#fbbf24)}
 .prog i.bad{background:linear-gradient(90deg,var(--bad),#fb7185)}
 .pr{display:flex;align-items:center;gap:8px;min-width:120px}
-.list-i{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.list-i{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
 .list-i:last-child{border-bottom:0}
 .stars{color:#f59e0b;letter-spacing:1px;white-space:nowrap}
 .stars i{font-style:normal;color:var(--line)}
+/* أشرطة التحليل */
+.hb{display:grid;gap:12px}
+.hb-r{display:grid;grid-template-columns:minmax(110px,36%) 1fr 72px;align-items:center;gap:12px;font-size:14px}
+.hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{height:10px;background:var(--surface2);border-radius:9px;overflow:hidden}
+.hb-t i{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--pri),var(--pri2));border-radius:9px;transform-origin:right;animation:fillw 1s var(--ease) both}
+.hb-t i.ok{background:linear-gradient(90deg,var(--ok),#34d399)}
+.hb-t i.warn{background:linear-gradient(90deg,var(--warn),#fbbf24)}
+.hb-t i.bad{background:linear-gradient(90deg,var(--bad),#fb7185)}
+.hb-v{text-align:end;font-weight:800;white-space:nowrap}
+.hb-v small{font-weight:400;font-size:11.5px}
 
 /* ---------- المهام ---------- */
 .tasks{display:grid;gap:12px}
-.task{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);border-inline-start:4px solid var(--mut);transition:transform .25s var(--ease)}
-.task:hover{transform:translateY(-2px)}
+.task{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow);border-inline-start:4px solid var(--mut)}
 .task.ok{border-inline-start-color:var(--ok)}
 .task.bad{border-inline-start-color:var(--bad)}
 .task.warn{border-inline-start-color:var(--warn)}
 .task.info{border-inline-start-color:var(--pri)}
-.task h4{margin:0 0 2px;font-size:15.5px}
+.task h4{margin:0 0 4px;font-size:16px}
 .task p{margin:0;color:var(--mut);font-size:14px;white-space:pre-line}
 .t-main{min-width:0;flex:1}
-.meta{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:10px;font-size:13px;color:var(--mut)}
-.meta>span{display:inline-flex;gap:5px;align-items:center}
-.deliv{margin-top:10px;background:var(--ok-soft);color:var(--ink);border-radius:10px;padding:9px 12px;font-size:13px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:12px;font-size:13px;color:var(--mut)}
+.meta>span{display:inline-flex;gap:6px;align-items:center}
+.deliv{margin-top:12px;background:var(--ok-soft);color:var(--ink);border-radius:var(--r-ctl);padding:10px 14px;font-size:13px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .t-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 
 /* ---------- اختيارات التقييم ---------- */
-.pick{display:flex;gap:8px;flex-wrap:wrap}
-.pick label{flex:1;min-width:64px;margin:0;cursor:pointer;position:relative}
+.pick{display:flex;gap:10px;flex-wrap:wrap}
+.pick label{flex:1;min-width:68px;margin:0;cursor:pointer;position:relative}
 .pick input{position:absolute;opacity:0;pointer-events:none}
-.pick span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:1.5px solid var(--line);border-radius:13px;background:var(--surface);transition:all .22s var(--ease);height:100%}
-.pick b{font-size:22px;line-height:1.15;font-weight:700}
+.pick span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface);transition:border-color .2s,background .2s,box-shadow .2s;height:100%}
+.pick b{font-size:22px;line-height:1.2;font-weight:700}
 .pick small{font-size:11.5px;color:var(--mut)}
-.pick label:hover span{transform:translateY(-2px);border-color:var(--pri)}
-.pick input:checked+span{border-color:var(--pri);background:var(--pri-soft);transform:scale(1.05);box-shadow:0 0 0 4px var(--ring)}
+.pick label:hover span{border-color:var(--pri)}
+.pick input:checked+span{border-color:var(--pri);background:var(--pri-soft);box-shadow:0 0 0 4px var(--ring)}
 .pick input:focus-visible+span{outline:2px solid var(--pri);outline-offset:2px}
-.note-ok{display:flex;gap:8px;align-items:center;background:var(--ok-soft);color:var(--ok);padding:9px 13px;border-radius:10px;font-size:14px;margin-bottom:14px}
+.note-ok{display:flex;gap:8px;align-items:center;background:var(--ok-soft);color:var(--ok);padding:10px 14px;border-radius:var(--r-ctl);font-size:14px;margin-bottom:16px}
 
 /* ---------- نوافذ ---------- */
-.overlay{position:fixed;inset:0;background:rgba(8,12,24,.58);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100;animation:fade .2s both;overflow:auto}
+.overlay{position:fixed;inset:0;background:rgba(8,12,24,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100;animation:fade .2s both;overflow:auto}
 .overlay.out{animation:fadeout .2s both}
-.modal{background:var(--surface);border:1px solid var(--line);border-radius:18px;width:min(560px,100%);max-height:90vh;max-height:92dvh;display:flex;flex-direction:column;box-shadow:0 30px 80px -20px rgba(0,0,0,.55);animation:pop .32s var(--ease) both}
-.modal.wide{width:min(820px,100%)}
-.m-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line)}
-.m-head h3{margin:0;font-size:17px}
-.m-body{padding:20px;overflow:auto}
-.m-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
-.cmsg{margin:0;line-height:1.8}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);width:min(580px,100%);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-lg);animation:pop .28s var(--ease) both}
+.modal.wide{width:min(860px,100%)}
+.m-head{flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 24px;min-height:60px;border-bottom:1px solid var(--line)}
+.m-head h3{font-size:17px}
+.m-body{flex:1;min-height:0;padding:24px;overflow:auto}
+.m-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+.m-foot.sticky{position:sticky;bottom:-24px;z-index:2;margin:28px -24px -24px;padding:14px 24px;background:var(--surface);border-top:1px solid var(--line)}
+.cmsg{margin:0;line-height:1.9}
 
 /* ---------- إشعارات ---------- */
 #toasts{position:fixed;bottom:20px;inset-inline:0;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:300;pointer-events:none;padding:0 12px}
-.t{display:flex;gap:10px;align-items:center;background:#111827;color:#fff;padding:11px 16px;border-radius:13px;box-shadow:0 14px 34px -10px rgba(0,0,0,.5);animation:tin .38s var(--ease) both;max-width:min(92vw,440px);font-size:14px;pointer-events:auto}
+.t{display:flex;gap:10px;align-items:center;background:#111827;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 14px 34px -10px rgba(0,0,0,.5);animation:tin .38s var(--ease) both;max-width:min(92vw,440px);font-size:14px;pointer-events:auto}
 .t.err{background:#b42318}
 .t.out{animation:tout .3s both}
 
-/* ---------- شاشات صغيرة ---------- */
-@media (max-width:860px){
+/* ---------- تجاوب ---------- */
+@media (max-width:1180px){.hide-lg{display:none}}
+@media (max-width:1000px){
+  .login{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .login-brand{padding:20px 24px;gap:0}
+  .login-brand .lb-body,.login-brand .lb-foot{display:none}
+  .login-form{padding:32px 20px 48px;align-items:start}
+  .lf-card{margin-top:8px}
+}
+@media (max-width:900px){
+  :root{--gut:18px}
+  .hide-md{display:none}
   .shell{display:block}
-  .side{position:fixed;inset:auto 0 0 0;height:auto;z-index:50;flex-direction:row;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-inline-end:0;border-top:1px solid var(--line);background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .side{position:fixed;inset:auto 0 0 0;height:auto;z-index:50;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-inline-end:0;border-top:1px solid var(--line);background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
   .brand,.side-foot{display:none}
   #nav{flex-direction:row;width:100%;justify-content:space-around;gap:2px}
-  .nav-i{flex-direction:column;gap:2px;padding:6px 4px;font-size:11px;flex:1;text-align:center;border-radius:10px}
-  .nav-i:hover{transform:none}
+  .nav-i{flex-direction:column;justify-content:center;gap:2px;min-height:52px;padding:4px;font-size:11px;flex:1;text-align:center;border-radius:var(--r-ctl)}
   .nav-i.on::before{display:none}
-  .top{padding:10px 16px}
-  main.view{padding:16px 16px 100px}
+  .top{min-height:58px}
+  main.view{padding:18px var(--gut) 104px}
   #toasts{bottom:92px}
 }
 @media (max-width:640px){
+  .grid .span2{grid-column:1/-1}
+  .fld.narrow{max-width:none}
   .task{flex-direction:column}.t-act{justify-content:flex-start}
   .user .nm{display:none}.user{padding-inline-end:4px}
   .overlay{align-items:flex-end;padding:0}
-  .modal{border-radius:20px 20px 0 0;width:100%!important}
-  .cols{grid-template-columns:1fr}
-  .toolbar .end{margin-inline-start:0;width:100%}
-  .search{max-width:none}
-  .filters select{max-width:none;flex:1 1 45%;min-width:0}
+  .modal{border-radius:20px 20px 0 0;width:100%!important;max-height:94dvh}
+  .m-body{padding:20px}
+  .m-foot.sticky{bottom:-20px;margin:24px -20px -20px;padding:12px 20px}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:12px;gap:10px}
+  .k-ic{width:38px;height:38px;border-radius:10px}
+  .kpi b{font-size:22px}
+  .kpi .muted{font-size:12px;line-height:1.4;display:block}
+  .search{max-width:none;flex-basis:100%}
+  .fbar-cnt{margin-inline-start:0}
+  .filters{grid-template-columns:1fr 1fr}
+  .ph-act{width:100%}.ph-act .btn{flex:1}
+  .hb-r{grid-template-columns:minmax(90px,38%) 1fr 62px}
+  .card{padding:16px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
@@ -365,13 +430,13 @@ const STUDY = ['طالب','خريج'];
 const EDU_STAGES = ['إعدادي','ثانوي','دبلوم / معهد','جامعي','دراسات عليا','دكتوراه'];
 /* فلاتر صفحة الأعضاء: k مفتاح الفلتر، f عمود البيانات، all نص «الكل»، note وصفه في ملف Excel */
 const FILTERS = [
-  { k: 'gov', f: 'governorate',       all: 'كل محافظات السكن',      list: GOVS,        note: 'محافظة السكن' },
-  { k: 'ugov', f: 'union_governorate', all: 'كل محافظات الاتحاد',   list: GOVS,        note: 'محافظة الاتحاد' },
-  { k: 'cap', f: 'capacity',          all: 'كل الصفات',             list: CAPS,        note: 'الصفة' },
-  { k: 'com', f: 'committee',         all: 'كل اللجان / الجهات',    list: COMMITTEES,  note: 'اللجنة' },
-  { k: 'gen', f: 'gender',            all: 'الجنس (الكل)',          list: GENDERS,     note: 'الجنس' },
-  { k: 'std', f: 'study_status',      all: 'طالب / خريج (الكل)',    list: STUDY,       note: 'الحالة الدراسية' },
-  { k: 'edu', f: 'edu_stage',         all: 'كل المراحل التعليمية',  list: EDU_STAGES,  note: 'المرحلة التعليمية' }
+  { k: 'gov', f: 'governorate',       all: 'محافظة السكن',           list: GOVS,        note: 'محافظة السكن' },
+  { k: 'ugov', f: 'union_governorate', all: 'محافظة الاتحاد',         list: GOVS,        note: 'محافظة الاتحاد' },
+  { k: 'cap', f: 'capacity',          all: 'الصفة',                   list: CAPS,        note: 'الصفة' },
+  { k: 'com', f: 'committee',         all: 'اللجنة / الجهة',          list: COMMITTEES,  note: 'اللجنة' },
+  { k: 'gen', f: 'gender',            all: 'الجنس',                   list: GENDERS,     note: 'الجنس' },
+  { k: 'std', f: 'study_status',      all: 'طالب / خريج',            list: STUDY,       note: 'الحالة الدراسية' },
+  { k: 'edu', f: 'edu_stage',         all: 'المرحلة التعليمية',      list: EDU_STAGES,  note: 'المرحلة التعليمية' }
 ];
 const newF = () => ({ q: '', st: 'all', limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, ''])) });
 
@@ -516,6 +581,9 @@ const skeleton = () => `<div class="card rise"><div class="sk" style="height:22p
 const emptyBox = (icon, text) => `<div class="empty">${ic(icon, 36)}<p>${esc(text)}</p></div>`;
 const errorBox = e => `<div class="card empty">${ic('alert', 36)}<p>${esc(friendly(e))}</p><button class="btn sec" data-retry>إعادة المحاولة</button></div>`;
 
+/* رأس موحد للصفحة: وصف قصير + أزرار الإجراءات */
+const pageHead = (sub, actions = '') => `<div class="ph" data-nr><p class="ph-sub">${esc(sub)}</p>${actions ? `<div class="ph-act">${actions}</div>` : ''}</div>`;
+
 function countUp(root = document){
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   $$('[data-count]', root).forEach(el => {
@@ -538,7 +606,7 @@ function paint(tok, html){
 function setTheme(t){
   document.documentElement.setAttribute('data-theme', t);
   try { localStorage.setItem('hr-theme', t); } catch (e) {}
-  const b = $('#themeBtn'); if (b) b.innerHTML = ic(t === 'dark' ? 'sun' : 'moon', 20);
+  $$('#themeBtn,#lTheme').forEach(b => { b.innerHTML = ic(t === 'dark' ? 'sun' : 'moon', 20); });
 }
 
 /* ---------- الصور ---------- */
@@ -827,17 +895,35 @@ async function logout(idle){
 function showLogin(){
   history.replaceState(null, '', location.pathname + location.search);
   $('#app').innerHTML = `
-  <div class="auth"><i class="blob a"></i><i class="blob b"></i>
-    <form id="lf" class="auth-card">
-      <div class="logo">${ic('briefcase', 28)}</div>
-      <h1>نظام الموارد البشرية</h1><p class="muted">سجّل الدخول للمتابعة</p>
-      <div class="fld"><label for="em">البريد الإلكتروني</label><input id="em" type="email" name="email" required autocomplete="username" dir="ltr"></div>
-      <div class="fld"><label for="pw">كلمة المرور</label>
-        <div class="pwrap"><input id="pw" type="password" name="password" required autocomplete="current-password" dir="ltr">
-        <button type="button" class="btn ghost icon sm" id="eye" aria-label="إظهار كلمة المرور">${ic('eye')}</button></div></div>
-      <button class="btn block">دخول</button>
-      <p class="muted c" style="margin-top:14px">الحسابات يضيفها المسؤول فقط.</p>
-    </form></div>`;
+  <div class="login">
+    <section class="login-brand">
+      <div class="lb-top"><span class="logo">${ic('briefcase', 22)}</span><b>نظام الموارد البشرية</b></div>
+      <div class="lb-body">
+        <h2>بيانات الأعضاء والمهام والأداء في مكان واحد</h2>
+        <ul class="lb-list">
+          <li><span class="ic-w">${ic('users', 20)}</span><div><b>سجل الأعضاء</b>بيانات كاملة وصور الهوية في تخزين خاص، ولكل فتح أو تنزيل أثر في السجل.</div></li>
+          <li><span class="ic-w">${ic('tasks', 20)}</span><div><b>المهام والتسليم</b>أسند المهام لفريقك وتابع تسليمها في موعدها.</div></li>
+          <li><span class="ic-w">${ic('layout', 20)}</span><div><b>تحليل الأعضاء</b>توزيع حسب اللجنة والجنس والمحافظة والمرحلة التعليمية.</div></li>
+        </ul>
+      </div>
+      <p class="lb-foot">نظام داخلي، والحسابات يضيفها المسؤول فقط.</p>
+    </section>
+    <main class="login-form">
+      <button type="button" class="btn ghost icon login-theme" id="lTheme" aria-label="تبديل المظهر"></button>
+      <form id="lf" class="lf-card">
+        <h1>تسجيل الدخول</h1>
+        <p class="sub">أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.</p>
+        <div class="fld"><label for="em">البريد الإلكتروني</label><input id="em" type="email" name="email" required autocomplete="username" dir="ltr"></div>
+        <div class="fld"><label for="pw">كلمة المرور</label>
+          <div class="pwrap"><input id="pw" type="password" name="password" required autocomplete="current-password" dir="ltr">
+          <button type="button" class="btn ghost icon sm" id="eye" aria-label="إظهار كلمة المرور">${ic('eye')}</button></div></div>
+        <button class="btn block">دخول</button>
+        <p class="muted c" style="margin-top:18px">إذا نسيت كلمة المرور، اطلب من المسؤول إعادة تعيينها.</p>
+      </form>
+    </main>
+  </div>`;
+  setTheme(document.documentElement.getAttribute('data-theme') || 'light');
+  $('#lTheme').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   $('#eye').onclick = () => { const i = $('#pw'); i.type = i.type === 'password' ? 'text' : 'password'; };
   $('#lf').addEventListener('submit', async e => {
     e.preventDefault();
@@ -872,7 +958,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.2</div>
+      <div class="side-foot muted">الإصدار 3.3</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -960,18 +1046,19 @@ async function viewEmployees(tok){
   empF = newF();
   const fopts = list => list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
   paint(tok, `
-  <div class="toolbar tight">
-    <div class="search">${ic('search')}<input id="q" type="search" placeholder="ابحث بالاسم أو رقم العضوية" aria-label="بحث بالاسم أو رقم العضوية" autocomplete="off"></div>
-    <div class="chips" id="stc"><button data-v="all" class="on">الكل <small></small></button><button data-v="active">نشط <small></small></button><button data-v="inactive">غير نشط <small></small></button></div>
-    <span class="muted" id="cnt"></span>
-    <button class="btn sec end" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button>
-    <button class="btn" id="addE">${ic('plus')} إضافة عضو</button>
+  ${pageHead('سجّل بيانات الأعضاء وصورهم، ثم ابحث وصفِّ وصدّر ما تحتاجه.', `<button class="btn sec" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button><button class="btn" id="addE">${ic('plus')} إضافة عضو</button>`)}
+  <div class="card fbar">
+    <div class="fbar-top">
+      <div class="search">${ic('search')}<input id="q" type="search" placeholder="ابحث بالاسم أو رقم العضوية" aria-label="بحث بالاسم أو رقم العضوية" autocomplete="off"></div>
+      <div class="chips" id="stc"><button data-v="all" class="on">الكل <small></small></button><button data-v="active">نشط <small></small></button><button data-v="inactive">غير نشط <small></small></button></div>
+      <span class="muted fbar-cnt" id="cnt"></span>
+      <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
+    </div>
+    <div class="filters" id="flt">
+      ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="تصفية حسب ${esc(x.note)}"><option value="">${esc(x.all)}</option>${fopts(x.list)}</select>`).join('')}
+    </div>
   </div>
-  <div class="filters" id="flt">
-    ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="تصفية حسب ${esc(x.note)}"><option value="">${esc(x.all)}</option>${fopts(x.list)}</select>`).join('')}
-    <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
-  </div>
-  <div class="card" data-nr><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
+  <div class="card flush" data-nr><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
   $('#q').oninput = e => { empF.q = e.target.value; empF.limit = 60; renderEmployees(); };
   $('#stc').onclick = e => { const b = e.target.closest('button'); if (!b) return; empF.st = b.dataset.v; empF.limit = 60; $$('#stc button').forEach(x => x.classList.toggle('on', x === b)); renderEmployees(); };
   $('#flt').addEventListener('change', e => {
@@ -1005,11 +1092,11 @@ function renderEmployees(){
   const c = $('#cnt'); if (c) c.textContent = rows.length + ' من ' + empCache.length;
   if (!rows.length){ list.innerHTML = emptyBox('users', empCache.length ? 'لا توجد نتائج مطابقة.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
   const shown = rows.slice(0, empF.limit);
-  list.innerHTML = `<table><thead><tr><th>العضو</th><th>الصفة</th><th>اللجنة / جهة التمثيل</th><th>المحافظة</th><th>الهاتف</th><th>الحالة</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
+  list.innerHTML = `<table><thead><tr><th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / جهة التمثيل</th><th class="hide-lg">المحافظة</th><th class="hide-md">الهاتف</th><th>الحالة</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
   ${shown.map((r, i) => `<tr style="--i:${Math.min(i, 12)}">
     <td><button type="button" class="who" data-a="view" data-id="${r.id}" title="عرض بيانات العضو"><span class="av" data-path="${esc(r.photo_path || '')}">${esc(initials(r.full_name))}</span><div><b>${esc(r.full_name)}</b><div class="muted">${r.membership_no ? 'رقم العضوية: <bdi>' + esc(r.membership_no) + '</bdi>' : '—'}${incomplete(r) ? ' <span class="tag warn">بيانات ناقصة</span>' : ''}</div></div></button></td>
     <td>${r.capacity ? `<span class="tag info">${esc(r.capacity)}</span>` : '—'}</td>
-    <td>${esc(r.committee) || '—'}</td><td>${esc(r.governorate) || '—'}</td><td><bdi>${esc(r.phone) || '—'}</bdi></td>
+    <td class="hide-md">${esc(r.committee) || '—'}</td><td class="hide-lg">${esc(r.governorate) || '—'}</td><td class="hide-md"><bdi>${esc(r.phone) || '—'}</bdi></td>
     <td><span class="tag ${r.status === 'active' ? 'ok' : 'mut'}">${r.status === 'active' ? 'نشط' : 'غير نشط'}</span></td>
     ${isAdmin() ? `<td>${esc(nameOf(r.created_by))}</td>` : ''}
     <td><div class="row-actions">
@@ -1076,7 +1163,7 @@ function memberModal(r){
       ${kv('تاريخ التسجيل', esc(ymd(r.created_at)))}
     </dl>
     <div class="pcards">${pcard('photos', 'الصورة الشخصية', r.photo_path)}${pcard('ids', 'صورة الهوية', r.id_doc_path)}</div>
-    <div class="m-foot"><button type="button" class="btn sec" data-close>إغلاق</button><button type="button" class="btn" data-edit>${ic('edit', 16)} تعديل</button></div>`,
+    <div class="m-foot sticky"><button type="button" class="btn sec" data-close>إغلاق</button><button type="button" class="btn" data-edit>${ic('edit', 16)} تعديل</button></div>`,
   { wide: true, onMount: (el, close) => {
     const pathOf = k => k === 'photos' ? r.photo_path : r.id_doc_path;
     const showImg = async kind => {
@@ -1106,7 +1193,7 @@ function employeeModal(emp){
     <div class="fsec">${ic('user', 16)} البيانات الأساسية</div>
     <div class="grid">
       <div class="fld"><label>رقم العضوية *</label><input name="membership_no" required maxlength="40" dir="ltr" inputmode="text" value="${esc(e.membership_no)}"></div>
-      <div class="fld full"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
+      <div class="fld span2"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
       <div class="fld"><label>رقم الهاتف *</label><input name="phone" type="tel" required dir="ltr" inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX" value="${esc(e.phone)}"></div>
       <div class="fld"><label>رقم البطاقة (14 رقماً) *</label><input name="national_id" required dir="ltr" inputmode="numeric" maxlength="14" placeholder="14 رقماً" value="${esc(e.national_id)}"></div>
       <div class="fld"><label>تاريخ الميلاد *</label><input name="birth_date" type="date" required dir="ltr" min="1900-01-01" max="${today()}" value="${esc(e.birth_date)}"></div>
@@ -1117,7 +1204,7 @@ function employeeModal(emp){
       <div class="fld full"><label>العنوان *</label><input name="address" required maxlength="300" placeholder="المدينة / الحي / الشارع / رقم المبنى" value="${esc(e.address)}"></div>
     </div>
     <div class="fsec">${ic('briefcase', 16)} الصفة واللجنة</div>
-    <div class="fld"><label>الصفة *</label><select name="capacity" required><option value="">اختر الصفة…</option>${opts(CAPS, e.capacity)}</select></div>
+    <div class="fld narrow"><label>الصفة *</label><select name="capacity" required><option value="">اختر الصفة…</option>${opts(CAPS, e.capacity)}</select></div>
     <div class="fld" id="commBox" hidden><label>اللجنة / جهة التمثيل *</label>
       <div class="opts" role="radiogroup" aria-label="اللجنة أو جهة التمثيل">${COMMITTEES.map(c => `<label><input type="radio" name="committee" value="${esc(c)}"${e.committee === c ? ' checked' : ''} required><span>${esc(c)}</span></label>`).join('')}</div></div>
     <div class="fsec">${ic('grad', 16)} البيانات التعليمية</div>
@@ -1132,7 +1219,7 @@ function employeeModal(emp){
       <div class="fld"><label>صورة الهوية${edit && e.id_doc_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="idimg" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
     </div>
     ${(!edit || !e.consent) ? `<label class="consent"><input type="checkbox" name="consent"${edit ? '' : ' required'}><span>أقرّ بأن العضو وافق كتابياً على جمع بياناته وصورته وصورة هويته لأغراض الموارد البشرية.</span></label>` : ''}
-    <div class="m-foot"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${edit ? 'حفظ التعديلات' : 'حفظ'}</button></div>
+    <div class="m-foot sticky"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${edit ? 'حفظ التعديلات' : 'حفظ'}</button></div>
   </form>`, { wide: true });
 
   // إظهار أزرار اللجنة بعد اختيار الصفة فقط
@@ -1223,10 +1310,10 @@ function dueText(t){
 async function viewTasks(tok){
   taskF = 'all';
   paint(tok, `
+  ${pageHead(isAdmin() ? 'أسند المهام لفريقك وتابع تسليمها في مواعيدها.' : 'مهامك الحالية وما سلّمته منها.', isAdmin() ? `<button class="btn" id="addT">${ic('plus')} مهمة جديدة</button>` : '')}
   <div class="toolbar">
     <div class="chips" id="tfc">${[['all', 'الكل'], ['pending', 'قيد التنفيذ'], ['overdue', 'متأخرة'], ['delivered', 'مسلّمة']].map(([v, l], i) => `<button data-v="${v}" class="${i ? '' : 'on'}">${l}</button>`).join('')}</div>
     <span class="muted" id="tcnt"></span>
-    ${isAdmin() ? `<button class="btn end" id="addT">${ic('plus')} مهمة جديدة</button>` : ''}
   </div>
   <div id="tl" class="tasks" data-nr>${'<div class="sk" style="height:96px"></div>'.repeat(3)}</div>`);
   $('#tfc').onclick = e => { const b = e.target.closest('button'); if (!b) return; taskF = b.dataset.v; $$('#tfc button').forEach(x => x.classList.toggle('on', x === b)); renderTasks(); };
@@ -1332,7 +1419,8 @@ async function viewEngagement(tok){
   ]);
   const show = rows.slice(0, 120);
   paint(tok, `
-  <div class="card"><h2>استبيان الأسبوع <span class="muted">يبدأ من ${esc(wk)}</span></h2>
+  ${pageHead('استبيان قصير كل أسبوع لمتابعة الرضا وحجم العمل.')}
+  <div class="cols"><div class="card"><h2>استبيان الأسبوع <span class="muted">يبدأ من ${esc(wk)}</span></h2>
     ${mine ? `<div class="note-ok">${ic('check', 18)} أرسلت ردّك لهذا الأسبوع، ويمكنك تعديله ما دام الأسبوع جارياً.</div>` : ''}
     <form id="gf">
       <div class="fld"><label>كيف مستوى رضاك عن العمل هذا الأسبوع؟</label>${pick('satisfaction', SAT_OPTS, mine && mine.satisfaction)}</div>
@@ -1340,7 +1428,7 @@ async function viewEngagement(tok){
       <div class="fld"><label>اقتراح أو ملاحظة (اختياري)</label><textarea name="comment" maxlength="1000">${esc(mine && mine.comment)}</textarea></div>
       <div style="margin-top:14px"><button class="btn">${mine ? 'تحديث الرد' : 'إرسال'}</button></div>
     </form></div>
-  <div class="card"><h2>${isAdmin() ? 'متوسط الفريق (آخر 8 أسابيع)' : 'تطور ردودي'}</h2>${weeklyChart(rows)}</div>
+  <div class="card"><h2>${isAdmin() ? 'متوسط الفريق (آخر 8 أسابيع)' : 'تطور ردودي'}</h2>${weeklyChart(rows)}</div></div>
   <div class="card"><h2>${isAdmin() ? 'كل الردود' : 'ردودي السابقة'}</h2><div class="tbl">${show.length ? `<table><thead><tr><th>الأسبوع</th>${isAdmin() ? '<th>الاسم</th>' : ''}<th>الرضا</th><th>حجم العمل</th><th>ملاحظة</th></tr></thead><tbody>
     ${show.map((r, i) => `<tr style="--i:${Math.min(i, 12)}"><td>${esc(r.week_start)}</td>${isAdmin() ? `<td>${esc(nameOf(r.user_id))}</td>` : ''}<td>${esc((SAT_OPTS[r.satisfaction - 1] || [])[1])} ${r.satisfaction}</td><td>${r.workload}</td><td>${esc(r.comment) || '—'}</td></tr>`).join('')}</tbody></table>` : emptyBox('heart', 'لا توجد ردود بعد.')}</div></div>`);
   const gf = $('#gf'); if (!gf) return;
@@ -1371,6 +1459,7 @@ async function viewPerformance(tok){
       <td><button class="btn danger sm icon" data-a="del" data-id="${r.id}" title="حذف" aria-label="حذف">${ic('trash')}</button></td></tr>`; }).join('')}</tbody></table>`;
   };
   if (!paint(tok, `
+  ${pageHead('قيّم أداء الأعضاء شهرياً وراجع التقييمات السابقة.')}
   <div class="card"><h2>تقييم شهري</h2>
     ${emps.length ? `<form id="pf"><div class="grid">
       <div class="fld"><label>العضو *</label><select name="employee_id" required>${emps.map(e => `<option value="${e.id}">${esc(e.full_name)}${e.membership_no ? ' — ' + esc(e.membership_no) : ''}${e.status === 'inactive' ? ' (غير نشط)' : ''}</option>`).join('')}</select></div>
@@ -1411,7 +1500,7 @@ async function viewLog(tok){
     db(sb.from('employees').select('id,full_name'))
   ]);
   const en = id => id ? ((emps.find(e => e.id === id) || {}).full_name || 'عضو محذوف') : '—';
-  paint(tok, `<div class="card"><h2>آخر 300 عملية فتح أو تنزيل لصور الهوية <span class="muted">السجل للقراءة فقط ولا يمكن تعديله من النظام</span></h2><div class="tbl">
+  paint(tok, `${pageHead('من فتح أو نزّل صور الهوية، ومتى.')}<div class="card"><h2>آخر 300 عملية فتح أو تنزيل لصور الهوية <span class="muted">السجل للقراءة فقط ولا يمكن تعديله من النظام</span></h2><div class="tbl">
   ${logs.length ? `<table><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>العضو</th></tr></thead><tbody>
   ${logs.map((l, i) => `<tr style="--i:${Math.min(i, 12)}"><td>${esc(fmtDT(l.at))}</td><td>${esc(nameOf(l.user_id))}</td><td><span class="tag info">${esc(ACTION_LBL[l.action] || l.action)}</span></td><td>${esc(en(l.employee_id))}</td></tr>`).join('')}</tbody></table>` : emptyBox('shield', 'لا توجد عمليات مسجّلة بعد.')}</div></div>`);
 }
@@ -1561,6 +1650,7 @@ async function viewDashboard(tok){
   const en = id => (emps.find(e => e.id === id) || {}).full_name || '—';
 
   if (!paint(tok, `
+  ${pageHead('ملخص الأعضاء والمهام والتفاعل والأداء في صفحة واحدة.')}
   <div class="dsec"><h2>${ic('users', 20)} تحليل الأعضاء</h2>
     <div class="chips" id="anc"><button data-v="all" class="on">كل الأعضاء</button><button data-v="active">النشطون فقط</button></div></div>
   <div id="memAn">${memberAnalytics(emps)}</div>
