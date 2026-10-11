@@ -151,6 +151,7 @@ main.view{padding:22px 26px 48px;max-width:1280px;margin:0 auto}
 
 /* ---------- أدوات الشريط ---------- */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar.tight{margin-bottom:10px}
 .search{position:relative;flex:1;min-width:220px;max-width:360px}
 .search .ic{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);color:var(--mut)}
 .search input{padding-inline-start:38px}
@@ -161,6 +162,10 @@ main.view{padding:22px 26px 48px;max-width:1280px;margin:0 auto}
 .chips small{opacity:.75;margin-inline-start:3px}
 .toolbar .end{margin-inline-start:auto}
 .toolbar .end~.btn{margin-inline-start:0}
+/* فلاتر المحافظة والصفة واللجنة */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.filters select{width:auto;min-width:165px;max-width:260px;flex:1 1 165px}
+.filters select.on{border-color:var(--pri);background:var(--pri-soft);color:var(--pri);font-weight:700}
 
 /* ---------- جداول ---------- */
 .tbl{overflow-x:auto}
@@ -312,6 +317,7 @@ button.who:hover b{color:var(--pri)}
   .cols{grid-template-columns:1fr}
   .toolbar .end{margin-inline-start:0;width:100%}
   .search{max-width:none}
+  .filters select{max-width:none;flex:1 1 45%;min-width:0}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
@@ -350,9 +356,18 @@ const initials = n => { const p = String(n || '?').trim().split(/\s+/); return (
 const avg = (a, k) => a.length ? a.reduce((s, x) => s + (x[k] || 0), 0) / a.length : null;
 const weekStart = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); };
 const stars = n => n ? `<span class="stars" aria-label="${n} من 5">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>` : '—';
+/* العمر بالسنوات من تاريخ الميلاد (YYYY-MM-DD) */
+const ageOf = d => {
+  if (!isDate(d)) return null;
+  const b = new Date(d + 'T00:00:00'), n = new Date();
+  let a = n.getFullYear() - b.getFullYear();
+  const m = n.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && n.getDate() < b.getDate())) a--;
+  return a >= 0 ? a : null;
+};
 /* تحويل الأرقام العربية/الفارسية إلى لاتينية، وتطبيع النص العربي للبحث */
-const toLatin = s => String(s ?? '').replace(/[٠-٩]/g, d => d.charCodeAt(0) - 1632).replace(/[۰-۹]/g, d => d.charCodeAt(0) - 1776);
-const norm = s => toLatin(s).toLowerCase().replace(/[ً-ٰٟـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
+const toLatin = s => String(s ?? '').replace(/[\u0660-\u0669]/g, d => d.charCodeAt(0) - 1632).replace(/[\u06F0-\u06F9]/g, d => d.charCodeAt(0) - 1776);
+const norm = s => toLatin(s).toLowerCase().replace(/[\u064B-\u0670\u065F\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
 const fname = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'file';
 
 const ACTION_LBL = { view_id: 'فتح صورة هوية', download_id: 'تنزيل صورة هوية', export_id: 'تصدير صورة هوية (قديم)' };
@@ -408,6 +423,7 @@ function friendly(e){
   if (/failed to fetch|network|load failed/i.test(m)) return 'تعذر الاتصال، تحقق من الإنترنت';
   if (/check constraint/i.test(m)) return 'قيمة غير صالحة، راجع الحقول';
   if (/jwt|expired/i.test(m)) return 'انتهت الجلسة، سجّل الدخول من جديد';
+  if (/birth_date/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
   return m;
 }
 function busy(b, on){ if (b){ b.disabled = on; b.classList.toggle('loading', on); } }
@@ -637,7 +653,7 @@ async function exportXlsx(file, sheets, btn){
 
 /* تعريفات الأوراق (نفس بيانات الموقع وبنفس الترتيب والتسميات) */
 const empSheet = (rows, note) => ({
-  name: 'الأعضاء', title: 'سجل الأعضاء', note,
+  name: 'الأعضاء', title: isAdmin() ? 'سجل الأعضاء' : 'سجل الأعضاء الذين أضفتهم', note,
   rows: [...rows].sort((a, b) => String(a.full_name).localeCompare(String(b.full_name), 'ar')),
   cols: [
     { h: 'م', w: 6, t: 'num', v: (r, i) => i + 1 },
@@ -648,12 +664,13 @@ const empSheet = (rows, note) => ({
     { h: 'المحافظة', w: 15, t: 'center', v: r => r.governorate },
     { h: 'رقم الهاتف', w: 16, t: 'code', v: r => r.phone },
     { h: 'رقم البطاقة', w: 20, t: 'code', v: r => r.national_id },
+    { h: 'تاريخ الميلاد', w: 15, t: 'date', v: r => r.birth_date },
     { h: 'العنوان', w: 42, t: 'text', v: r => r.address },
     { h: 'الحالة', w: 12, t: 'status', v: r => r.status === 'active' ? 'نشط' : 'غير نشط', tone: v => v === 'نشط' ? 'ok' : 'mut' },
     { h: 'الصورة الشخصية', w: 15, t: 'status', v: r => r.photo_path ? 'مرفقة' : 'غير مرفقة', tone: v => v === 'مرفقة' ? 'ok' : 'warn' },
     { h: 'صورة الهوية', w: 14, t: 'status', v: r => r.id_doc_path ? 'مرفقة' : 'غير مرفقة', tone: v => v === 'مرفقة' ? 'ok' : 'warn' },
     { h: 'تاريخ التسجيل', w: 15, t: 'date', v: r => r.created_at },
-    { h: 'أضافه', w: 20, t: 'text', v: r => nameOf(r.created_by) }
+    ...(isAdmin() ? [{ h: 'أضافه', w: 20, t: 'text', v: r => nameOf(r.created_by) }] : [])
   ]
 });
 const taskSheet = tasks => ({
@@ -815,7 +832,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3</div>
+      <div class="side-foot muted">الإصدار 3.1</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -876,39 +893,65 @@ function accountModal(){
 }
 
 /* ================= بيانات الأعضاء ================= */
-let empCache = [], empF = { q: '', st: 'all', limit: 60 };
-const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || !r.committee || !r.phone || !r.address;
+let empCache = [], empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
+const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || !r.committee || !r.phone || !r.address || !r.birth_date;
 
-function filteredEmps(){
+/* skipSt = true: تجاهل فلتر الحالة (لحساب عدّادات أزرار الكل/نشط/غير نشط) */
+function filteredEmps(skipSt){
   const toks = norm(empF.q).split(' ').filter(Boolean);
   return empCache.filter(r => {
-    if (empF.st !== 'all' && r.status !== empF.st) return false;
+    if (!skipSt && empF.st !== 'all' && r.status !== empF.st) return false;
+    if (empF.gov && r.governorate !== empF.gov) return false;
+    if (empF.cap && r.capacity !== empF.cap) return false;
+    if (empF.com && r.committee !== empF.com) return false;
     if (!toks.length) return true;
     const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id].join(' '));
     return toks.every(t => hay.includes(t));
   });
 }
+const anyFilter = () => !!(empF.q.trim() || empF.st !== 'all' || empF.gov || empF.cap || empF.com);
 function filterNote(){
   const p = [];
   if (empF.st !== 'all') p.push('الحالة: ' + (empF.st === 'active' ? 'نشط' : 'غير نشط'));
+  if (empF.gov) p.push('المحافظة: ' + empF.gov);
+  if (empF.cap) p.push('الصفة: ' + empF.cap);
+  if (empF.com) p.push('اللجنة: ' + empF.com);
   if (empF.q.trim()) p.push('بحث: ' + empF.q.trim());
   return p.join('   ·   ');
 }
 async function viewEmployees(tok){
-  empF = { q: '', st: 'all', limit: 60 };
+  empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
+  const fopts = list => list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
   paint(tok, `
-  <div class="toolbar">
+  <div class="toolbar tight">
     <div class="search">${ic('search')}<input id="q" type="search" placeholder="ابحث بالاسم أو رقم العضوية" aria-label="بحث بالاسم أو رقم العضوية" autocomplete="off"></div>
     <div class="chips" id="stc"><button data-v="all" class="on">الكل <small></small></button><button data-v="active">نشط <small></small></button><button data-v="inactive">غير نشط <small></small></button></div>
     <span class="muted" id="cnt"></span>
-    ${isAdmin() ? `<button class="btn sec end" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button>` : ''}
-    <button class="btn${isAdmin() ? '' : ' end'}" id="addE">${ic('plus')} إضافة عضو</button>
+    <button class="btn sec end" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button>
+    <button class="btn" id="addE">${ic('plus')} إضافة عضو</button>
+  </div>
+  <div class="filters" id="flt">
+    <select data-f="gov" aria-label="تصفية حسب المحافظة"><option value="">كل المحافظات</option>${fopts(GOVS)}</select>
+    <select data-f="cap" aria-label="تصفية حسب الصفة"><option value="">كل الصفات</option>${fopts(CAPS)}</select>
+    <select data-f="com" aria-label="تصفية حسب اللجنة أو جهة التمثيل"><option value="">كل اللجان / الجهات</option>${fopts(COMMITTEES)}</select>
+    <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
   </div>
   <div class="card" data-nr><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
   $('#q').oninput = e => { empF.q = e.target.value; empF.limit = 60; renderEmployees(); };
   $('#stc').onclick = e => { const b = e.target.closest('button'); if (!b) return; empF.st = b.dataset.v; empF.limit = 60; $$('#stc button').forEach(x => x.classList.toggle('on', x === b)); renderEmployees(); };
+  $('#flt').addEventListener('change', e => {
+    const s = e.target.closest('select[data-f]'); if (!s) return;
+    empF[s.dataset.f] = s.value; empF.limit = 60; renderEmployees();
+  });
+  $('#fReset').onclick = () => {
+    empF = { q: '', st: 'all', gov: '', cap: '', com: '', limit: 60 };
+    $('#q').value = '';
+    $$('#flt select').forEach(s => { s.value = ''; });
+    $$('#stc button').forEach(x => x.classList.toggle('on', x.dataset.v === 'all'));
+    renderEmployees();
+  };
   $('#addE').onclick = () => employeeModal(null);
-  if (isAdmin()) $('#expE').onclick = e => exportXlsx(`members_${today()}.xlsx`, [empSheet(filteredEmps(), filterNote())], e.currentTarget);
+  $('#expE').onclick = e => exportXlsx(`members_${today()}.xlsx`, [empSheet(filteredEmps(), filterNote())], e.currentTarget);
   $('#list').addEventListener('click', onEmpClick);
   await loadEmployees();
 }
@@ -919,8 +962,11 @@ async function loadEmployees(){
 function renderEmployees(){
   const list = $('#list'); if (!list) return;
   const rows = filteredEmps();
-  const cnts = { all: empCache.length, active: empCache.filter(r => r.status === 'active').length, inactive: empCache.filter(r => r.status === 'inactive').length };
+  const base = filteredEmps(true);
+  const cnts = { all: base.length, active: base.filter(r => r.status === 'active').length, inactive: base.filter(r => r.status === 'inactive').length };
   $$('#stc button').forEach(b => { const s = $('small', b); if (s) s.textContent = cnts[b.dataset.v]; });
+  $$('#flt select').forEach(s => s.classList.toggle('on', !!s.value));
+  const rs = $('#fReset'); if (rs) rs.hidden = !anyFilter();
   const c = $('#cnt'); if (c) c.textContent = rows.length + ' من ' + empCache.length;
   if (!rows.length){ list.innerHTML = emptyBox('users', empCache.length ? 'لا توجد نتائج مطابقة.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
   const shown = rows.slice(0, empF.limit);
@@ -961,6 +1007,8 @@ function memberModal(r){
   const val = x => x ? esc(x) : '—';
   const ltr = x => x ? `<bdi dir="ltr">${esc(x)}</bdi>` : '—';
   const kv = (k, v, full) => `<div${full ? ' class="full"' : ''}><dt>${k}</dt><dd>${v}</dd></div>`;
+  const age = ageOf(r.birth_date);
+  const birth = r.birth_date ? `<bdi dir="ltr">${esc(r.birth_date)}</bdi>${age != null ? ` <span class="muted">(${age} سنة)</span>` : ''}` : '—';
   const pcard = (kind, title, path) => `<div class="pcard" data-k="${kind}">
     <div class="pc-h"><span>${title}</span><span class="pc-act">
       ${path && kind === 'ids' ? `<button type="button" class="btn sec sm" data-a="show">${ic('eye', 15)} عرض</button>` : ''}
@@ -979,6 +1027,7 @@ function memberModal(r){
       ${kv('رقم العضوية', ltr(r.membership_no))}
       ${kv('رقم الهاتف', ltr(r.phone))}
       ${kv('رقم البطاقة', ltr(r.national_id))}
+      ${kv('تاريخ الميلاد', birth)}
       ${kv('المحافظة', val(r.governorate))}
       ${kv('الصفة', val(r.capacity))}
       ${kv('اللجنة / جهة التمثيل', val(r.committee))}
@@ -1020,6 +1069,7 @@ function employeeModal(emp){
       <div class="fld full"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
       <div class="fld"><label>رقم الهاتف *</label><input name="phone" type="tel" required dir="ltr" inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX" value="${esc(e.phone)}"></div>
       <div class="fld"><label>رقم البطاقة (14 رقماً) *</label><input name="national_id" required dir="ltr" inputmode="numeric" maxlength="14" placeholder="14 رقماً" value="${esc(e.national_id)}"></div>
+      <div class="fld"><label>تاريخ الميلاد *</label><input name="birth_date" type="date" required dir="ltr" min="1900-01-01" max="${today()}" value="${esc(e.birth_date)}"></div>
       <div class="fld"><label>المحافظة *</label><select name="governorate" required><option value="">اختر المحافظة…</option>${opts(GOVS, e.governorate)}</select></div>
       ${edit ? `<div class="fld"><label>الحالة</label><select name="status"><option value="active"${e.status === 'active' ? ' selected' : ''}>نشط</option><option value="inactive"${e.status === 'inactive' ? ' selected' : ''}>غير نشط</option></select></div>` : ''}
       <div class="fld full"><label>العنوان *</label><input name="address" required maxlength="300" placeholder="المدينة / الحي / الشارع / رقم المبنى" value="${esc(e.address)}"></div>
@@ -1060,16 +1110,19 @@ function employeeModal(emp){
       full_name: String(f.get('full_name')).replace(/\s+/g, ' ').trim(),
       phone: toLatin(f.get('phone')).replace(/[\s\-()]/g, ''),
       national_id: toLatin(f.get('national_id')).replace(/\s/g, ''),
+      birth_date: String(f.get('birth_date') || '').trim(),
       governorate: f.get('governorate'),
       address: String(f.get('address')).trim(),
       capacity: f.get('capacity'),
       committee: f.get('committee')
     };
     if (!row.membership_no) return bad('رقم العضوية مطلوب');
-    if (!/^[ء-ي\s]+$/.test(row.full_name)) return bad('اكتب الاسم بالعربية فقط (حروف عربية بدون أرقام أو رموز)');
+    if (!/^[\u0621-\u064A\s]+$/.test(row.full_name)) return bad('اكتب الاسم بالعربية فقط (حروف عربية بدون أرقام أو رموز)');
     if (row.full_name.split(' ').length < 3) return bad('اكتب الاسم كاملاً (ثلاثة أسماء على الأقل)');
     if (!/^\+?\d{8,15}$/.test(row.phone)) return bad('رقم الهاتف غير صالح (أرقام فقط)');
     if (!/^\d{14}$/.test(row.national_id)) return bad('رقم البطاقة يجب أن يكون 14 رقماً');
+    if (!isDate(row.birth_date)) return bad('تاريخ الميلاد مطلوب');
+    if (row.birth_date < '1900-01-01' || row.birth_date > today()) return bad('تاريخ الميلاد غير صالح');
     if (!GOVS.includes(row.governorate)) return bad('اختر المحافظة');
     if (!row.address) return bad('العنوان مطلوب');
     if (!CAPS.includes(row.capacity)) return bad('اختر الصفة');

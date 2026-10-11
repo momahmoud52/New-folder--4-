@@ -1,7 +1,8 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.1 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
+-- الجديد في 3.1: عمود تاريخ الميلاد (birth_date) مع قيد على صحته.
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -102,9 +103,10 @@ create trigger profiles_guard
 
 -- ---------------------------------------------------------------------
 -- 2) الأعضاء (البيانات + مسارات الصور)
---    [الإصدار 3] رقم العضوية بدل الرقم الوظيفي + المحافظة + العنوان
---    + رقم البطاقة + الصفة + اللجنة. الأعمدة القديمة (القسم/البريد/الانضمام)
---    تبقى في الجدول كما هي حتى لا تضيع بياناتك، لكن الواجهة لم تعد تستخدمها.
+--    رقم العضوية + المحافظة + العنوان + رقم البطاقة + الصفة + اللجنة
+--    [الإصدار 3.1] + تاريخ الميلاد.
+--    الأعمدة القديمة (القسم/البريد/الانضمام) تبقى في الجدول كما هي حتى
+--    لا تضيع بياناتك، لكن الواجهة لم تعد تستخدمها.
 -- ---------------------------------------------------------------------
 create table if not exists public.employees (
   id            uuid primary key default gen_random_uuid(),
@@ -114,6 +116,7 @@ create table if not exists public.employees (
   governorate   text,
   address       text,
   national_id   text,
+  birth_date    date,
   capacity      text,
   committee     text,
   status        text not null default 'active' check (status in ('active','inactive')),
@@ -143,6 +146,7 @@ alter table public.employees add column if not exists membership_no text;
 alter table public.employees add column if not exists governorate   text;
 alter table public.employees add column if not exists address       text;
 alter table public.employees add column if not exists national_id   text;
+alter table public.employees add column if not exists birth_date    date;   -- [جديد 3.1]
 alter table public.employees add column if not exists capacity      text;
 alter table public.employees add column if not exists committee     text;
 alter table public.employees add column if not exists department    text;
@@ -152,6 +156,7 @@ alter table public.employees add column if not exists join_date     date;
 alter table public.employees enable row level security;
 
 -- عضو الفريق يرى ما أدخله هو فقط، والمسؤول يرى كل شيء
+-- (وبالتالي تصدير Excel لعضو الفريق يضم بياناته هو فقط)
 drop policy if exists "employees_select" on public.employees;
 create policy "employees_select" on public.employees
   for select to authenticated
@@ -356,27 +361,27 @@ begin
       check (notes is null or char_length(notes) <= 2000) not valid;
   end if;
 
-  -- [جديد] رقم البطاقة 14 رقماً
+  -- رقم البطاقة 14 رقماً
   if not exists (select 1 from pg_constraint where conname = 'employees_nid_chk') then
     alter table public.employees add constraint employees_nid_chk
       check (national_id is null or national_id ~ '^[0-9]{14}$') not valid;
   end if;
-  -- [جديد] الهاتف أرقام فقط (مع + اختيارية)
+  -- الهاتف أرقام فقط (مع + اختيارية)
   if not exists (select 1 from pg_constraint where conname = 'employees_phone_chk') then
     alter table public.employees add constraint employees_phone_chk
       check (phone is null or phone ~ '^\+?[0-9]{8,15}$') not valid;
   end if;
-  -- [جديد] حدود أطوال العنوان ورقم العضوية
+  -- حدود أطوال العنوان ورقم العضوية
   if not exists (select 1 from pg_constraint where conname = 'employees_text_len') then
     alter table public.employees add constraint employees_text_len
       check (coalesce(char_length(address),0) <= 300 and coalesce(char_length(membership_no),0) <= 40) not valid;
   end if;
-  -- [جديد] الصفة
+  -- الصفة
   if not exists (select 1 from pg_constraint where conname = 'employees_capacity_chk') then
     alter table public.employees add constraint employees_capacity_chk
       check (capacity is null or capacity in ('رئيس','نائب','عضو','عضو مركزي','ممثل')) not valid;
   end if;
-  -- [جديد] اللجنة / جهة التمثيل
+  -- اللجنة / جهة التمثيل
   if not exists (select 1 from pg_constraint where conname = 'employees_committee_chk') then
     alter table public.employees add constraint employees_committee_chk
       check (committee is null or committee in (
@@ -392,7 +397,7 @@ begin
         'ممثل المكتب الفني'
       )) not valid;
   end if;
-  -- [جديد] المحافظة (27 محافظة)
+  -- المحافظة (27 محافظة)
   if not exists (select 1 from pg_constraint where conname = 'employees_governorate_chk') then
     alter table public.employees add constraint employees_governorate_chk
       check (governorate is null or governorate in (
@@ -402,6 +407,12 @@ begin
         'البحر الأحمر','الوادي الجديد','مطروح'
       )) not valid;
   end if;
+  -- [جديد 3.1] تاريخ الميلاد: لا يسبق 1900 ولا يكون في المستقبل البعيد
+  -- (التحقق من «ليس في المستقبل» يتم في الواجهة، لأن current_date لا يصلح داخل CHECK)
+  if not exists (select 1 from pg_constraint where conname = 'employees_birth_chk') then
+    alter table public.employees add constraint employees_birth_chk
+      check (birth_date is null or birth_date between date '1900-01-01' and date '2100-01-01') not valid;
+  end if;
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -409,7 +420,7 @@ end $$;
 -- ---------------------------------------------------------------------
 create index if not exists employees_created_by_idx on public.employees (created_by);
 create index if not exists employees_created_at_idx on public.employees (created_at desc);
--- [جديد] منع تسجيل نفس رقم البطاقة مرتين
+-- منع تسجيل نفس رقم البطاقة مرتين
 create unique index if not exists employees_national_id_uq on public.employees (national_id) where national_id is not null;
 create index if not exists tasks_assigned_idx       on public.tasks (assigned_to);
 create index if not exists tasks_status_due_idx     on public.tasks (status, due_date);
@@ -468,6 +479,5 @@ notify pgrst, 'reload schema';
 --   update public.profiles set role = 'admin' where email = 'your@email.com';
 --
 -- إذا كنت تُرقّي نظاماً قائماً: يكفي تشغيل هذا الملف مرة أخرى، ولا حاجة لشيء آخر.
--- الأعضاء المسجَّلون سابقاً سيحتفظون برقمهم الوظيفي القديم كرقم عضوية،
--- ويحتاجون فقط إلى استكمال الحقول الجديدة عند تعديلهم.
+-- الأعضاء المسجَّلون سابقاً يظهر عليهم وسم «بيانات ناقصة» حتى يُستكمل تاريخ ميلادهم.
 -- =====================================================================
