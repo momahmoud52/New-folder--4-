@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.4
+   نظام التصميم — الإصدار 3.5
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -408,6 +408,13 @@ button.who:hover b{color:var(--pri)}
 }
 .sub-em{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 input[readonly]{background:var(--surface2);color:var(--mut);cursor:default}
+.welcome{position:fixed;top:18px;inset-inline:0;margin-inline:auto;width:min(420px,calc(100% - 24px));z-index:320;display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--pri);border-radius:var(--r);box-shadow:var(--shadow-lg);cursor:pointer;animation:pop .45s var(--ease) both;transition:opacity .3s,transform .3s}
+.welcome.out{opacity:0;transform:translateY(-12px)}
+.welcome .w-ic{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--pri-soft,rgba(59,91,219,.12));color:var(--pri)}
+.welcome>div{min-width:0;display:flex;flex-direction:column;gap:2px}
+.welcome small{color:var(--mut);font-size:12.5px}
+.welcome b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.welcome .muted{font-size:12.5px}
 </style>
 </head>
 <body>
@@ -525,7 +532,7 @@ function friendly(e){
   if (/failed to fetch|network|load failed/i.test(m)) return 'تعذر الاتصال، تحقق من الإنترنت';
   if (/check constraint/i.test(m)) return 'قيمة غير صالحة، راجع الحقول';
   if (/jwt|expired/i.test(m)) return 'انتهت الجلسة، سجّل الدخول من جديد';
-  if (/(email|birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
+  if (/(name_confirmed_at|email|birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
   return m;
 }
 function busy(b, on){ if (b){ b.disabled = on; b.classList.toggle('loading', on); } }
@@ -549,12 +556,12 @@ function openModal(title, html, o = {}){
   const ov = document.createElement('div');
   ov.className = 'overlay';
   ov.innerHTML = `<div class="modal${o.wide ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-    <div class="m-head"><h3>${esc(title)}</h3><button type="button" class="btn ghost icon" data-close aria-label="إغلاق">${ic('x')}</button></div>
+    <div class="m-head"><h3>${esc(title)}</h3>${o.locked ? '' : `<button type="button" class="btn ghost icon" data-close aria-label="إغلاق">${ic('x')}</button>`}</div>
     <div class="m-body">${html}</div></div>`;
   document.body.appendChild(ov);
   document.body.classList.add('noscroll');
   let closed = false;
-  const key = e => { if (e.key === 'Escape') close(); };
+  const key = e => { if (e.key === 'Escape' && !o.locked) close(); };
   function close(){
     if (closed) return; closed = true;
     document.removeEventListener('keydown', key);
@@ -565,7 +572,7 @@ function openModal(title, html, o = {}){
     if (o.onClose) o.onClose();
   }
   document.addEventListener('keydown', key);
-  ov.addEventListener('mousedown', e => { if (e.target === ov || e.target.closest('[data-close]')) close(); });
+  ov.addEventListener('mousedown', e => { if (o.locked ? e.target.closest('[data-close]') : (e.target === ov || e.target.closest('[data-close]'))) close(); });
   setTimeout(() => { const f = $('input:not([type=file]):not([type=hidden]):not([type=radio]),select,textarea', ov); if (f) f.focus(); }, 80);
   const api = { el: ov, close };
   if (o.onMount) o.onMount(ov, close);
@@ -889,6 +896,7 @@ function resetState(){
   document.body.classList.remove('noscroll');
 }
 async function logout(idle){
+  try { sessionStorage.removeItem('hr-welcomed'); } catch (e) {}
   loggingOut = true;
   try { await sb.auth.signOut(); } catch (e) {}
   loggingOut = false;
@@ -962,7 +970,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.4</div>
+      <div class="side-foot muted">الإصدار 3.5</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -979,6 +987,58 @@ async function enter(user){
   $('#out').onclick = () => logout(false);
   $('#acc').onclick = accountModal;
   route();
+  // أول دخول: يؤكد الاسم الحقيقي بالعربية مرة واحدة. بعدها: رسالة ترحيب عند كل تسجيل دخول.
+  // إن لم يُشغَّل schema.sql 3.5 بعد (العمود غير موجود) نتخطى النافذة بدل أن تتكرر.
+  if ('name_confirmed_at' in me && !me.name_confirmed_at) nameGate();
+  else welcomeOnce();
+}
+
+/* ---------------- الاسم الحقيقي بالعربية + الترحيب ---------------- */
+const AR_NAME_RX = /^[\u0621-\u064A]+(?: [\u0621-\u064A]+)+$/;
+const cleanName = v => String(v || '').replace(/\s+/g, ' ').trim();
+const firstName = n => cleanName(n).split(' ')[0] || '';
+
+function welcomeOnce(first){
+  let seen = false;
+  try { seen = sessionStorage.getItem('hr-welcomed') === me.id; sessionStorage.setItem('hr-welcomed', me.id); } catch (e) {}
+  if (seen && !first) return;      // تحديث الصفحة لا يكرر الترحيب
+  showWelcome(first);
+}
+function showWelcome(first){
+  const h = new Date().getHours(), greet = h < 12 ? 'صباح الخير' : h < 18 ? 'نهارك سعيد' : 'مساء الخير';
+  const name = cleanName(me.full_name) || me.email;
+  const el = document.createElement('div');
+  el.className = 'welcome'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span class="w-ic">${ic('user', 22)}</span><div><small>${greet}</small><b></b><span class="muted">${first ? 'تم حفظ اسمك، نتمنى لك عملاً موفقاً.' : 'سعداء بعودتك.'}</span></div>`;
+  $('b', el).textContent = 'مرحباً بك، ' + name;
+  const bye = () => { el.classList.add('out'); setTimeout(() => el.remove(), 360); };
+  el.onclick = bye; document.body.appendChild(el); setTimeout(bye, 5200);
+}
+function nameGate(){
+  const cur = cleanName(me.full_name);
+  openModal('مرحباً بك في النظام', `
+    <p class="cmsg" style="margin-top:0">هذه أول مرة تدخل فيها. اكتب <b>اسمك الحقيقي باللغة العربية</b> كما سيظهر لزملائك وفي سجل من أضاف البيانات.</p>
+    <p class="muted" style="margin:0 0 14px">اكتب الاسم الأول واسم العائلة على الأقل، بحروف عربية فقط وبدون أرقام أو رموز. تظهر هذه النافذة مرة واحدة فقط.</p>
+    <form id="gf" novalidate><div class="fld"><label for="gn">اسمك بالعربية *</label>
+      <input id="gn" name="full_name" required maxlength="80" lang="ar" autocomplete="name" placeholder="مثال: أحمد محمد علي" value="${AR_NAME_RX.test(cur) ? esc(cur) : ''}"></div>
+      <div class="muted" id="gh" style="min-height:20px;margin-top:6px"></div>
+      <div class="m-foot"><button type="button" class="btn sec" id="gout">تسجيل الخروج</button><button class="btn">حفظ ومتابعة</button></div></form>`,
+    { locked: true, onMount: (el, close) => {
+      const inp = $('#gn', el), hint = $('#gh', el);
+      const check = () => { const v = cleanName(inp.value); hint.textContent = !v ? '' : /[^\u0621-\u064A\s]/.test(v) ? 'حروف عربية فقط، بدون أرقام أو رموز.' : AR_NAME_RX.test(v) ? '' : 'أضف اسم العائلة أيضاً.'; hint.style.color = hint.textContent ? 'var(--bad, #c0392b)' : ''; };
+      inp.addEventListener('input', check);
+      $('#gout', el).onclick = () => { close(); logout(false); };
+      onSubmit($('#gf', el), async f => {
+        const full_name = cleanName(f.get('full_name'));
+        if (!AR_NAME_RX.test(full_name)) { check(); inp.focus(); return toast('اكتب اسمك بالعربية (الاسم الأول واسم العائلة على الأقل)', true); }
+        const name_confirmed_at = new Date().toISOString();
+        await db(sb.from('profiles').update({ full_name, name_confirmed_at }).eq('id', me.id));
+        me.full_name = full_name; me.name_confirmed_at = name_confirmed_at;
+        const p = team.find(x => x.id === me.id); if (p) p.full_name = full_name;
+        $('#acc .nm').textContent = full_name + (isAdmin() ? ' · مسؤول' : ''); $('#acc .av').textContent = initials(full_name);
+        close(); welcomeOnce(true);
+      });
+    } });
 }
 function route(){
   if (!me) return;
@@ -1001,16 +1061,17 @@ function go(t){
 function accountModal(){
   const m = openModal('حسابي', `
     <p class="muted" style="margin-top:0"><bdi dir="ltr">${esc(me.email)}</bdi> · ${isAdmin() ? 'مسؤول' : 'عضو فريق'}</p>
-    <form id="nf"><div class="fld"><label>الاسم المعروض</label><input name="full_name" value="${esc(me.full_name)}" required maxlength="80"></div>
+    <form id="nf"><div class="fld"><label>الاسم الحقيقي بالعربية</label><input name="full_name" value="${esc(me.full_name)}" required maxlength="80" lang="ar"></div>
       <div class="m-foot" style="margin-top:12px"><button class="btn">حفظ الاسم</button></div></form>
     <hr>
     <form id="pwf"><div class="fld"><label>كلمة المرور الجديدة (8 أحرف على الأقل)</label><input type="password" name="p1" minlength="8" required autocomplete="new-password"></div>
       <div class="fld"><label>تأكيد كلمة المرور</label><input type="password" name="p2" minlength="8" required autocomplete="new-password"></div>
       <div class="m-foot" style="margin-top:12px"><button class="btn sec">تغيير كلمة المرور</button></div></form>`);
   onSubmit($('#nf', m.el), async f => {
-    const full_name = f.get('full_name').trim(); if (!full_name) return toast('الاسم مطلوب', true);
-    await db(sb.from('profiles').update({ full_name }).eq('id', me.id));
-    me.full_name = full_name; const p = team.find(x => x.id === me.id); if (p) p.full_name = full_name;
+    const full_name = cleanName(f.get('full_name')); if (!AR_NAME_RX.test(full_name)) return toast('اكتب اسمك بالعربية (الاسم الأول واسم العائلة على الأقل)', true);
+    const upd = { full_name }; if ('name_confirmed_at' in me && !me.name_confirmed_at) upd.name_confirmed_at = new Date().toISOString();
+    await db(sb.from('profiles').update(upd).eq('id', me.id));
+    Object.assign(me, upd); const p = team.find(x => x.id === me.id); if (p) p.full_name = full_name;
     $('#acc .nm').textContent = full_name + (isAdmin() ? ' · مسؤول' : ''); $('#acc .av').textContent = initials(full_name);
     toast('تم حفظ الاسم');
   });

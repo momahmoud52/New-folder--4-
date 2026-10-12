@@ -1,9 +1,10 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.4 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.5 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
+-- 3.5: تأكيد الاسم الحقيقي بالعربية عند أول دخول (profiles.name_confirmed_at).
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -97,6 +98,19 @@ begin
   return new;
 end;
 $$;
+
+-- [جديد 3.5] تأكيد الاسم عند أول دخول: فارغ = لم يؤكد اسمه بعد، فتظهر له نافذة مرة واحدة.
+-- الحسابات الموجودة قبل 3.5 تبقى فارغة، فيُطلب من كل واحد منها تأكيد اسمه مرة واحدة.
+alter table public.profiles add column if not exists name_confirmed_at timestamptz;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_name_chk') then
+    alter table public.profiles add constraint profiles_name_chk
+      check (name_confirmed_at is null
+             or (char_length(full_name) <= 80 and full_name ~ '^[ء-ي]+( [ء-ي]+)+$')) not valid;
+  end if;
+end $$;
 
 drop trigger if exists profiles_guard on public.profiles;
 create trigger profiles_guard
