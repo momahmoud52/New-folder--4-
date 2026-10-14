@@ -1,10 +1,12 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.5 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.7 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
 -- 3.5: تأكيد الاسم الحقيقي بالعربية عند أول دخول (profiles.name_confirmed_at).
+-- 3.6: صفتان جديدتان (منسق / نائب منسق) واختيار محافظتهما من 27 محافظة.
+-- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -335,6 +337,16 @@ create policy "performance_member_delete" on public.performance
          and exists (select 1 from public.employees e
                      where e.id = performance.employee_id and e.created_by = auth.uid()));
 
+-- [جديد 3.7] تقييم من 10 بأربعة معايير. العمودان القديمان (من 5) يبقيان كما هما.
+alter table public.performance add column if not exists interaction_score int check (interaction_score between 1 and 10);
+alter table public.performance add column if not exists ontime_score      int check (ontime_score      between 1 and 10);
+alter table public.performance add column if not exists quality_score     int check (quality_score     between 1 and 10);
+alter table public.performance add column if not exists meetings_score    int check (meetings_score    between 1 and 10);
+
+-- نقل تقييمات الجودة القديمة (من 5) إلى المقياس الجديد (من 10)؛ آمن للإعادة
+update public.performance set quality_score = quality_rating * 2
+ where quality_score is null and quality_rating is not null;
+
 -- ---------------------------------------------------------------------
 -- 5) التفاعل الأسبوعي
 -- ---------------------------------------------------------------------
@@ -436,26 +448,58 @@ begin
       check (coalesce(char_length(address),0) <= 300 and coalesce(char_length(membership_no),0) <= 40) not valid;
   end if;
   -- الصفة
-  if not exists (select 1 from pg_constraint where conname = 'employees_capacity_chk') then
-    alter table public.employees add constraint employees_capacity_chk
-      check (capacity is null or capacity in ('رئيس','نائب','عضو','عضو مركزي','ممثل')) not valid;
-  end if;
+  -- [3.6] تُحذف وتُنشأ من جديد حتى تلتقط القيم الجديدة في القواعد القديمة
+  alter table public.employees drop constraint if exists employees_capacity_chk;
+  alter table public.employees add constraint employees_capacity_chk
+    check (capacity is null or capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل')) not valid;
   -- اللجنة / جهة التمثيل
-  if not exists (select 1 from pg_constraint where conname = 'employees_committee_chk') then
-    alter table public.employees add constraint employees_committee_chk
-      check (committee is null or committee in (
-        'لجنة المكتب الإعلامي',
-        'لجنة الموارد البشرية',
-        'لجنة التنظيم والمراسم',
-        'لجنة التدريب والتطوير',
-        'لجنة العلاقات العامة والدولية',
-        'لجنة الاستدامة والتحول الأخضر',
-        'لجنة السياحة والثقافة',
-        'لجنة التخطيط والمتابعة',
-        'ممثل مكتب المشروعات',
-        'ممثل المكتب الفني'
-      )) not valid;
-  end if;
+  -- (للمنسق ونائب المنسق تُخزَّن المحافظة هنا بصيغة «محافظة القاهرة»)
+  alter table public.employees drop constraint if exists employees_committee_chk;
+  alter table public.employees add constraint employees_committee_chk
+    check (committee is null or committee in (
+      'لجنة المكتب الإعلامي',
+      'لجنة الموارد البشرية',
+      'لجنة التنظيم والمراسم',
+      'لجنة التدريب والتطوير',
+      'لجنة العلاقات العامة والدولية',
+      'لجنة الاستدامة والتحول الأخضر',
+      'لجنة السياحة والثقافة',
+      'لجنة التخطيط والمتابعة',
+      'ممثل مكتب المشروعات',
+      'ممثل المكتب الفني',
+      'محافظة القاهرة',
+      'محافظة الجيزة',
+      'محافظة الإسكندرية',
+      'محافظة القليوبية',
+      'محافظة الشرقية',
+      'محافظة الدقهلية',
+      'محافظة الغربية',
+      'محافظة المنوفية',
+      'محافظة البحيرة',
+      'محافظة كفر الشيخ',
+      'محافظة دمياط',
+      'محافظة بورسعيد',
+      'محافظة الإسماعيلية',
+      'محافظة السويس',
+      'محافظة شمال سيناء',
+      'محافظة جنوب سيناء',
+      'محافظة الفيوم',
+      'محافظة بني سويف',
+      'محافظة المنيا',
+      'محافظة أسيوط',
+      'محافظة سوهاج',
+      'محافظة قنا',
+      'محافظة الأقصر',
+      'محافظة أسوان',
+      'محافظة البحر الأحمر',
+      'محافظة الوادي الجديد',
+      'محافظة مطروح'
+    )) not valid;
+  -- المنسق ونائبه يختاران محافظة، وبقية الصفات تختار لجنة (لا خلط بين النوعين)
+  alter table public.employees drop constraint if exists employees_cap_unit_chk;
+  alter table public.employees add constraint employees_cap_unit_chk
+    check (capacity is null or committee is null
+           or ((capacity in ('منسق','نائب منسق')) = (committee like 'محافظة %'))) not valid;
   -- المحافظة (27 محافظة)
   if not exists (select 1 from pg_constraint where conname = 'employees_governorate_chk') then
     alter table public.employees add constraint employees_governorate_chk
