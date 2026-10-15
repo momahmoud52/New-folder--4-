@@ -1,12 +1,13 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.7 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.8 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
 -- 3.5: تأكيد الاسم الحقيقي بالعربية عند أول دخول (profiles.name_confirmed_at).
 -- 3.6: صفتان جديدتان (منسق / نائب منسق) واختيار محافظتهما من 27 محافظة.
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
+-- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -606,6 +607,186 @@ create policy "hr_files_delete" on storage.objects
   using (
     bucket_id in ('photos','ids')
     and public.is_admin()
+  );
+
+-- ---------------------------------------------------------------------
+-- 10) [جديد 3.8] التسجيل الذاتي: العضو يملأ بياناته بنفسه من رابط عام (#register)
+--     • الطلبات تُحفظ في جدول منفصل (registrations) بحالة «قيد المراجعة».
+--     • الزائر (anon) يستطيع الإدراج فقط: لا يقرأ ولا يعدّل ولا يحذف أي شيء.
+--     • المسؤول وحده يراجع الطلب ثم يوافق (ينتقل إلى جدول الأعضاء) أو يرفض.
+--     • حماية من الإساءة: تحقق كامل من القيم، حد 10 طلبات/ساعة لكل IP، وسقف عام 200 طلب/ساعة.
+-- ---------------------------------------------------------------------
+create table if not exists public.registrations (
+  id                uuid primary key default gen_random_uuid(),
+  membership_no     text,
+  full_name         text not null,
+  phone             text not null,
+  email             text not null,
+  national_id       text not null,
+  birth_date        date not null,
+  gender            text not null,
+  governorate       text not null,
+  union_governorate text not null,
+  address           text not null,
+  capacity          text not null,
+  committee         text not null,
+  study_status      text not null,
+  edu_stage         text not null,
+  institution       text not null,
+  photo_path        text,
+  id_doc_path       text,
+  consent           boolean not null default false,
+  status            text not null default 'pending' check (status in ('pending','approved','rejected')),
+  submit_ip         text,
+  reviewed_by       uuid references auth.users(id),
+  reviewed_at       timestamptz,
+  review_note       text,
+  employee_id       uuid references public.employees(id) on delete set null,
+  created_at        timestamptz not null default now()
+);
+
+do $$
+begin
+  alter table public.registrations drop constraint if exists registrations_values_chk;
+  alter table public.registrations add constraint registrations_values_chk check (
+        char_length(full_name) <= 120 and full_name ~ '^[ء-ي]+( [ء-ي]+){2,}$'
+    and phone ~ '^\+?[0-9]{8,15}$'
+    and national_id ~ '^[0-9]{14}$'
+    and char_length(email) <= 150 and email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]{2,}$'
+    and gender in ('ذكر','أنثى')
+    and governorate in ('القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية', 'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس', 'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح')
+    and union_governorate in ('القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية', 'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس', 'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح')
+    and char_length(address) between 1 and 300
+    and capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل')
+    and committee in ('لجنة المكتب الإعلامي', 'لجنة الموارد البشرية', 'لجنة التنظيم والمراسم', 'لجنة التدريب والتطوير', 'لجنة العلاقات العامة والدولية', 'لجنة الاستدامة والتحول الأخضر', 'لجنة السياحة والثقافة', 'لجنة التخطيط والمتابعة', 'ممثل مكتب المشروعات', 'ممثل المكتب الفني', 'محافظة القاهرة', 'محافظة الجيزة', 'محافظة الإسكندرية', 'محافظة القليوبية', 'محافظة الشرقية', 'محافظة الدقهلية', 'محافظة الغربية', 'محافظة المنوفية', 'محافظة البحيرة', 'محافظة كفر الشيخ', 'محافظة دمياط', 'محافظة بورسعيد', 'محافظة الإسماعيلية', 'محافظة السويس', 'محافظة شمال سيناء', 'محافظة جنوب سيناء', 'محافظة الفيوم', 'محافظة بني سويف', 'محافظة المنيا', 'محافظة أسيوط', 'محافظة سوهاج', 'محافظة قنا', 'محافظة الأقصر', 'محافظة أسوان', 'محافظة البحر الأحمر', 'محافظة الوادي الجديد', 'محافظة مطروح')
+    and ((capacity in ('منسق','نائب منسق')) = (committee like 'محافظة %'))
+    and study_status in ('طالب','خريج')
+    and edu_stage in ('إعدادي','ثانوي','دبلوم / معهد','جامعي','دراسات عليا','دكتوراه')
+    and char_length(institution) between 1 and 150
+    and coalesce(char_length(membership_no), 0) <= 40
+    and coalesce(char_length(review_note), 0) <= 500
+    and (photo_path  is null or photo_path  ~ '^reg/[0-9a-f-]{36}\.jpg$')
+    and (id_doc_path is null or id_doc_path ~ '^reg/[0-9a-f-]{36}\.jpg$')
+  );
+end $$;
+
+-- قبل كل إدراج: يفرض الحالة الأولى، يتحقق من تاريخ الميلاد، ويطبّق حد المعدل
+create or replace function public.registrations_before_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  hdr json; ip text; n int;
+begin
+  begin hdr := nullif(current_setting('request.headers', true), '')::json; exception when others then hdr := null; end;
+  ip := nullif(trim(split_part(coalesce(hdr->>'cf-connecting-ip', hdr->>'x-forwarded-for', ''), ',', 1)), '');
+
+  new.status := 'pending'; new.reviewed_by := null; new.reviewed_at := null;
+  new.review_note := null; new.employee_id := null; new.created_at := now();
+  new.submit_ip := ip;
+  new.email := lower(trim(new.email));
+  new.full_name := regexp_replace(trim(new.full_name), '\s+', ' ', 'g');
+  new.membership_no := nullif(trim(coalesce(new.membership_no, '')), '');
+
+  if new.birth_date < date '1900-01-01' or new.birth_date > current_date then
+    raise exception 'تاريخ الميلاد غير صالح';
+  end if;
+
+  if not public.is_admin() then
+    if ip is not null then
+      select count(*) into n from public.registrations where submit_ip = ip and created_at > now() - interval '1 hour';
+      if n >= 10 then raise exception 'تم تجاوز عدد المحاولات المسموح بها. حاول بعد ساعة.'; end if;
+    end if;
+    select count(*) into n from public.registrations where created_at > now() - interval '1 hour';
+    if n >= 200 then raise exception 'النظام مشغول الآن، حاول لاحقاً.'; end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists registrations_guard on public.registrations;
+create trigger registrations_guard
+  before insert on public.registrations
+  for each row execute function public.registrations_before_insert();
+
+alter table public.registrations enable row level security;
+
+-- أي زائر: إدراج فقط، وبشرط الإقرار بالموافقة
+drop policy if exists "registrations_public_insert" on public.registrations;
+create policy "registrations_public_insert" on public.registrations
+  for insert to anon, authenticated
+  with check (consent = true);
+
+-- المسؤول: كل شيء (مراجعة، رفض، حذف)
+drop policy if exists "registrations_admin_all" on public.registrations;
+create policy "registrations_admin_all" on public.registrations
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+revoke all on public.registrations from anon, authenticated;
+grant insert on public.registrations to anon;
+grant select, insert, update, delete on public.registrations to authenticated;
+
+-- سجل الوصول يشمل فتح صورة هوية داخل طلب تسجيل لم يُعتمد بعد
+alter table public.access_log add column if not exists registration_id uuid references public.registrations(id) on delete set null;
+
+create index if not exists registrations_status_idx on public.registrations (status, created_at desc);
+create index if not exists registrations_ip_idx     on public.registrations (submit_ip, created_at desc);
+-- لا يُقبل أكثر من طلب «قيد المراجعة» لنفس رقم البطاقة (يمنع تكرار الإرسال)
+create unique index if not exists registrations_pending_nid on public.registrations (national_id) where status = 'pending';
+
+-- الموافقة: تنقل الطلب إلى جدول الأعضاء (يملكه المسؤول الموافق) وتُغلق الطلب. للمسؤول فقط.
+create or replace function public.approve_registration(p_id uuid, p_membership_no text default null)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r public.registrations;
+  mno text;
+  new_id uuid;
+begin
+  if not public.is_admin() then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+  select * into r from public.registrations where id = p_id for update;
+  if not found then raise exception 'الطلب غير موجود'; end if;
+  if r.status <> 'pending' then raise exception 'تمت مراجعة هذا الطلب مسبقاً'; end if;
+  if exists (select 1 from public.employees where national_id = r.national_id) then
+    raise exception 'رقم البطاقة مسجَّل مسبقاً في سجل الأعضاء';
+  end if;
+  mno := nullif(trim(coalesce(p_membership_no, r.membership_no, '')), '');
+  if mno is not null and exists (select 1 from public.employees where membership_no = mno) then
+    raise exception 'رقم العضوية مستخدم مسبقاً';
+  end if;
+
+  insert into public.employees
+    (membership_no, full_name, phone, email, national_id, birth_date, gender, governorate, union_governorate,
+     address, capacity, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent, status, created_by)
+  values
+    (mno, r.full_name, r.phone, r.email, r.national_id, r.birth_date, r.gender, r.governorate, r.union_governorate,
+     r.address, r.capacity, r.committee, r.study_status, r.edu_stage, r.institution, r.photo_path, r.id_doc_path, true, 'active', auth.uid())
+  returning id into new_id;
+
+  update public.registrations
+     set status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), employee_id = new_id, membership_no = mno
+   where id = p_id;
+  return new_id;
+end;
+$$;
+revoke all on function public.approve_registration(uuid, text) from public, anon;
+grant execute on function public.approve_registration(uuid, text) to authenticated;
+
+-- رفع الصور من النموذج العام: إدراج فقط داخل المجلد reg/ وباسم UUID وصيغة jpg (يضغطها المتصفح).
+-- لا قراءة ولا تعديل ولا حذف للزائر. الحد 2MB وصيغ الصور مفروضان على الـ bucket نفسه.
+drop policy if exists "hr_files_public_insert" on storage.objects;
+create policy "hr_files_public_insert" on storage.objects
+  for insert to anon, authenticated
+  with check (
+    bucket_id in ('photos','ids')
+    and name ~ '^reg/[0-9a-f-]{36}\.jpg$'
   );
 
 -- =====================================================================

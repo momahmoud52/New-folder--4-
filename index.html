@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.7
+   نظام التصميم — الإصدار 3.8
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -433,6 +433,26 @@ th.c,td.c{text-align:center}
 .crit-avg .ca-l{flex:none;width:150px;font-size:14px}
 .crit-avg .prog{flex:1}
 @media (max-width:600px){.pick.ten{grid-template-columns:repeat(5,1fr)}.crit-avg .ca-l{width:110px}}
+.hp{position:absolute!important;inset-inline-start:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.reg-cta{margin-top:20px;padding-top:18px;border-top:1px solid var(--line);display:grid;gap:10px;text-align:center}
+.reg-cta span{color:var(--mut);font-size:13.5px}
+.reg{min-height:100vh;background:var(--bg)}
+.reg-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px max(16px,calc((100% - 940px)/2));background:var(--surface);border-bottom:1px solid var(--line)}
+.reg-top .brand{display:flex;align-items:center;gap:10px}
+.reg-top-r{display:flex;align-items:center;gap:6px}
+.reg-main{padding:28px 16px 60px;display:flex;justify-content:center}
+.reg-card{width:min(940px,100%);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:clamp(20px,4vw,40px)}
+.reg-card h1{font-size:clamp(22px,3.4vw,28px);margin:0 0 6px;text-wrap:balance}
+.reg-card .sub{margin:0 0 22px;color:var(--mut)}
+.reg-card .m-foot{margin-top:22px;display:block;border:0;padding:0}
+.reg-done{text-align:center;padding:30px 0 10px;display:grid;gap:12px;justify-items:center}
+.reg-done .ok-ic{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--ok-soft);color:var(--ok)}
+.reg-done .sub{max-width:460px;margin:0}
+.reg-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.reg-tools .search{flex:1;min-width:200px;max-width:340px}
+.nav-i{position:relative}
+.nav-badge{font-style:normal;font-size:11.5px;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:inline-grid;place-items:center;background:var(--bad);color:#fff;margin-inline-start:auto}
+@media (max-width:900px){.nav-badge{position:absolute;top:2px;inset-inline-end:6px;min-width:17px;height:17px;font-size:10.5px;padding:0 4px}}
 </style>
 </head>
 <body>
@@ -507,7 +527,7 @@ const toLatin = s => String(s ?? '').replace(/[\u0660-\u0669]/g, d => d.charCode
 const norm = s => toLatin(s).toLowerCase().replace(/[\u064B-\u0670\u065F\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
 const fname = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'file';
 
-const ACTION_LBL = { view_id: 'فتح صورة هوية', download_id: 'تنزيل صورة هوية', export_id: 'تصدير صورة هوية (قديم)' };
+const ACTION_LBL = { view_id: 'فتح صورة هوية', download_id: 'تنزيل صورة هوية', export_id: 'تصدير صورة هوية (قديم)', view_reg_id: 'فتح صورة هوية (طلب تسجيل)' };
 let sb, me = null, team = [], current = 'dashboard', viewTok = 0, loggingOut = false;
 const isAdmin = () => !!me && me.role === 'admin';
 const nameOf = id => { const p = team.find(x => x.id === id); return p ? (p.full_name || p.email) : '—'; };
@@ -540,6 +560,7 @@ const ICONS = {
   briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   undo:'<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
   cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   grad:'<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><line x1="22" y1="10" x2="22" y2="16"/>'
 };
 const ic = (n, s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -556,12 +577,14 @@ function toast(msg, isErr){
 }
 function friendly(e){
   const m = (e && e.message) || String(e);
+  if (/registrations_pending_nid/i.test(m)) return 'تم استلام طلب بهذا الرقم من قبل وهو قيد المراجعة';
   if (/duplicate key/i.test(m)) return 'القيمة مستخدمة مسبقاً (رقم العضوية أو رقم البطاقة)';
   if (/row-level security|permission denied|not authorized/i.test(m)) return 'ليست لديك صلاحية لهذه العملية';
   if (/failed to fetch|network|load failed/i.test(m)) return 'تعذر الاتصال، تحقق من الإنترنت';
+  if (/registrations_values_chk/i.test(m)) return 'تعذر قبول البيانات، راجع الحقول وتأكد من صحتها';
   if (/check constraint/i.test(m)) return 'قيمة غير صالحة، راجع الحقول';
   if (/jwt|expired/i.test(m)) return 'انتهت الجلسة، سجّل الدخول من جديد';
-  if (/(_score|name_confirmed_at|email|birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
+  if (/(registration_id|_score|name_confirmed_at|email|birth_date|gender|institution|edu_stage|study_status|union_governorate)/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله كاملاً من SQL Editor ثم حدّث الصفحة';
   return m;
 }
 function busy(b, on){ if (b){ b.disabled = on; b.classList.toggle('loading', on); } }
@@ -872,7 +895,7 @@ const logSheet = (logs, en) => ({
     { h: 'الوقت', w: 20, t: 'dt', v: l => l.at },
     { h: 'المستخدم', w: 26, t: 'text', v: l => nameOf(l.user_id) },
     { h: 'العملية', w: 22, t: 'status', v: l => ACTION_LBL[l.action] || l.action, tone: () => 'info' },
-    { h: 'العضو', w: 32, t: 'text', v: l => en(l.employee_id) }
+    { h: 'العضو', w: 32, t: 'text', v: l => en(l.employee_id, l.registration_id) }
   ]
 });
 
@@ -913,14 +936,14 @@ async function init(){
   sb.auth.onAuthStateChange(ev => {
     if (ev === 'SIGNED_OUT' && me && !loggingOut){ resetState(); showLogin(); toast('انتهت الجلسة، سجّل الدخول من جديد', true); }
   });
-  window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => { if (me) route(); else if (location.hash === '#register') showRegister(); else if (!$('.login')) showLogin(); });
   document.addEventListener('click', e => { if (e.target.closest('[data-retry]')) route(); });
   let last = 0; // خروج تلقائي عند الخمول
   ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev => addEventListener(ev, () => { last = Date.now(); }, { passive: true }));
   last = Date.now();
   setInterval(() => { if (me && Date.now() - last > IDLE_MIN * 60000) logout(true); }, 30000);
   const { data: { session } } = await sb.auth.getSession();
-  session ? enter(session.user) : showLogin();
+  if (session) enter(session.user); else if (location.hash === '#register') showRegister(); else showLogin();
 }
 function resetState(){
   me = null; team = []; empCache = []; taskCache = []; thumbs = { at: 0, map: {} }; viewTok++;
@@ -963,6 +986,7 @@ function showLogin(){
           <button type="button" class="btn ghost icon sm" id="eye" aria-label="إظهار كلمة المرور">${ic('eye')}</button></div></div>
         <button class="btn block">دخول</button>
         <p class="muted c" style="margin-top:18px">إذا نسيت كلمة المرور، اطلب من المسؤول إعادة تعيينها.</p>
+        <div class="reg-cta"><span>عضو جديد ولا تملك حساباً؟</span><a class="btn sec block" href="#register">${ic('plus')} سجّل بياناتك بنفسك</a></div>
       </form>
     </main>
   </div>`;
@@ -982,8 +1006,179 @@ function showLogin(){
   });
 }
 
+
+/* ================= التسجيل الذاتي العام (#register) — بدون تسجيل دخول ================= */
+async function uploadPublic(bucket, file){
+  const blob = await compress(file);
+  const path = `reg/${crypto.randomUUID()}.jpg`;   // المجلد reg/ هو الوحيد المسموح للزائر بالرفع فيه
+  const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: 'image/jpeg' });
+  if (error) throw error;
+  return path;
+}
+function showRegister(){
+  const theme = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const draw = () => {
+    $('#app').innerHTML = `
+    <div class="reg">
+      <header class="reg-top">
+        <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
+        <div class="reg-top-r"><button type="button" class="btn ghost icon" id="rTheme" aria-label="تبديل المظهر"></button><button type="button" class="btn ghost sm" id="rLogin">دخول الفريق</button></div>
+      </header>
+      <main class="reg-main"><div class="reg-card">
+        <h1>تسجيل بيانات عضو جديد</h1>
+        <p class="sub">املأ بياناتك بنفسك وأرسلها. تصل إلى الإدارة للمراجعة، وتُضاف إلى السجل بعد الموافقة عليها.</p>
+        ${memberFormHtml({}, { pub: true })}
+      </div></main>
+    </div>`;
+    setTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    $('#rTheme').onclick = () => setTheme(theme());
+    $('#rLogin').onclick = () => showLogin();
+    wireMemberForm($('.reg-card'));
+    const t0 = Date.now();
+    onSubmit($('#ef'), async f => {
+      if (f.get('website') || Date.now() - t0 < 3000) return done();            // حقل فخّ للبرمجيات الآلية
+      const row = readMemberRow(f), err = memberErr(row, false);
+      if (err) return toast(err, true);
+      if (!f.get('consent')) return toast('يجب الإقرار بالموافقة أولاً', true);
+      const idimg = f.get('idimg'), photo = f.get('photo');
+      if (!idimg || !idimg.size) return toast('أرفق صورة الهوية', true);
+      row.id_doc_path = await uploadPublic('ids', idimg);
+      if (photo && photo.size) row.photo_path = await uploadPublic('photos', photo);
+      row.consent = true;
+      const { error } = await sb.from('registrations').insert(row);
+      if (error) throw error;
+      done();
+    });
+  };
+  const done = () => {
+    window.scrollTo(0, 0);
+    $('.reg-card').innerHTML = `<div class="reg-done"><span class="ok-ic">${ic('check', 34)}</span>
+      <h1>تم استلام طلبك</h1>
+      <p class="sub">شكراً لك. ستراجع الإدارة بياناتك وتضيفك إلى السجل بعد الموافقة. لا حاجة لإرسال الطلب مرة أخرى.</p>
+      <button type="button" class="btn sec" id="rAgain">تسجيل عضو آخر</button></div>`;
+    $('#rAgain').onclick = draw;
+  };
+  draw();
+}
+
+/* ================= طلبات التسجيل الذاتي (مسؤول) ================= */
+let regCache = [], regF = 'pending';
+const REG_ST = { pending: ['قيد المراجعة', 'warn'], approved: ['تمت الموافقة', 'ok'], rejected: ['مرفوض', 'bad'] };
+async function pendingRegCount(){
+  try { const { count } = await sb.from('registrations').select('id', { count: 'exact', head: true }).eq('status', 'pending'); return count || 0; } catch (e) { return 0; }
+}
+function setRegBadge(n){
+  const a = $('.nav-i[data-t=registrations]'); if (!a) return;
+  let b = $('.nav-badge', a);
+  if (!n){ if (b) b.remove(); return; }
+  if (!b){ b = document.createElement('i'); b.className = 'nav-badge'; a.appendChild(b); }
+  b.textContent = n > 99 ? '99+' : n;
+}
+async function viewRegistrations(tok){
+  regCache = await db(sb.from('registrations').select('*').order('created_at', { ascending: false }).limit(500));
+  setRegBadge(regCache.filter(r => r.status === 'pending').length);
+  const link = location.origin + location.pathname + '#register';
+  const cnt = k => k === 'all' ? regCache.length : regCache.filter(r => r.status === k).length;
+  if (!paint(tok, `
+  ${pageHead('يملأ العضو بياناته من الرابط العام، وتصل هنا للمراجعة. وافق لتنتقل إلى سجل الأعضاء أو ارفض.', `<button class="btn sec" id="copyReg" title="انسخ الرابط وأرسله للأعضاء">${ic('link')} نسخ رابط التسجيل</button>`)}
+  <div class="card flush" data-nr>
+    <div class="reg-tools"><div class="chips" id="rgc">${[['pending', 'قيد المراجعة'], ['approved', 'تمت الموافقة'], ['rejected', 'مرفوضة'], ['all', 'الكل']].map(([k, l]) => `<button data-v="${k}"${k === regF ? ' class="on"' : ''}>${l} <small>${cnt(k)}</small></button>`).join('')}</div>
+      <div class="search">${ic('search')}<input id="rq" type="search" placeholder="ابحث بالاسم أو الهاتف أو البريد" autocomplete="off"></div></div>
+    <div class="tbl" id="rgl"></div>
+  </div>`)) return;
+  $('#copyReg').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('تم نسخ الرابط'); } catch (e) { prompt('انسخ الرابط:', link); } };
+  const draw = () => {
+    const q = norm($('#rq').value);
+    const rows = regCache.filter(r => (regF === 'all' || r.status === regF) && (!q || norm([r.full_name, r.phone, r.email, r.national_id].join(' ')).includes(q)));
+    $$('#rgc button').forEach(b => b.classList.toggle('on', b.dataset.v === regF));
+    if (!rows.length){ $('#rgl').innerHTML = emptyBox('inbox', regF === 'pending' && !q ? 'لا توجد طلبات قيد المراجعة.' : 'لا توجد نتائج.'); return; }
+    $('#rgl').innerHTML = `<table><thead><tr><th>مقدّم الطلب</th><th class="hide-md">الصفة / اللجنة</th><th class="hide-md">الهاتف / البريد</th><th class="hide-lg">المحافظة</th><th class="hide-md">التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
+    ${rows.map((r, i) => { const st = REG_ST[r.status] || ['', 'mut'], age = ageOf(r.birth_date);
+      return `<tr style="--i:${Math.min(i, 12)}"><td><button type="button" class="who" data-a="view" data-id="${r.id}"><span class="av">${esc(initials(r.full_name))}</span><div><b>${esc(r.full_name)}</b><div class="muted">${age != null ? age + ' سنة' : ''}${r.institution ? ' · ' + esc(r.institution) : ''}</div></div></button></td>
+      <td class="hide-md">${r.capacity ? `<span class="tag info">${esc(r.capacity)}</span>` : ''}<div class="muted">${esc(r.committee)}</div></td>
+      <td class="hide-md"><bdi>${esc(r.phone)}</bdi><div class="muted sub-em" title="${esc(r.email)}"><bdi>${esc(r.email)}</bdi></div></td>
+      <td class="hide-lg">${esc(r.governorate)}</td><td class="hide-md" style="white-space:nowrap">${esc(ymd(r.created_at))}</td>
+      <td><span class="tag ${st[1]}">${st[0]}</span></td>
+      <td><div class="row-actions"><button class="btn ghost sm icon" data-a="view" data-id="${r.id}" title="عرض التفاصيل والصور" aria-label="عرض">${ic('eye')}</button>
+        ${r.status === 'pending' ? `<button class="btn sm" data-a="approve" data-id="${r.id}">${ic('check', 15)} موافقة</button><button class="btn danger sm icon" data-a="reject" data-id="${r.id}" title="رفض" aria-label="رفض">${ic('x')}</button>` : ''}</div></td></tr>`; }).join('')}</tbody></table>`;
+  };
+  draw();
+  $('#rgc').onclick = e => { const b = e.target.closest('button[data-v]'); if (b){ regF = b.dataset.v; draw(); } };
+  $('#rq').oninput = draw;
+  $('#rgl').addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const r = regCache.find(x => x.id === b.dataset.id); if (!r) return;
+    if (b.dataset.a === 'view') regModal(r);
+    if (b.dataset.a === 'approve') approveModal(r);
+    if (b.dataset.a === 'reject') rejectModal(r);
+  });
+}
+function approveModal(r, after){
+  const m = openModal('الموافقة على الطلب', `
+    <p class="cmsg" style="margin-top:0">سيُضاف <b>${esc(r.full_name)}</b> إلى سجل الأعضاء بحالة «نشط». اكتب رقم العضوية الخاص به.</p>
+    <form id="af"><div class="fld"><label>رقم العضوية *</label><input name="mno" required maxlength="40" dir="ltr" value="${esc(r.membership_no || '')}"></div>
+    <div class="m-foot"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${ic('check', 16)} موافقة وإضافة</button></div></form>`);
+  onSubmit($('#af', m.el), async f => {
+    const mno = toLatin(f.get('mno')).trim(); if (!mno) return toast('رقم العضوية مطلوب', true);
+    const { error } = await sb.rpc('approve_registration', { p_id: r.id, p_membership_no: mno });
+    if (error) throw error;
+    m.close(); toast('تمت الموافقة وأُضيف العضو إلى السجل'); empCache = []; go('registrations');
+  });
+}
+function rejectModal(r){
+  const m = openModal('رفض الطلب', `
+    <p class="cmsg" style="margin-top:0">رفض طلب <b>${esc(r.full_name)}</b>؟ يمكنك كتابة سبب للرجوع إليه (اختياري، لا يراه مقدّم الطلب).</p>
+    <form id="xf"><div class="fld"><label>السبب</label><textarea name="note" maxlength="500"></textarea></div>
+    <div class="m-foot"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn danger">رفض الطلب</button></div></form>`);
+  onSubmit($('#xf', m.el), async f => {
+    await db(sb.from('registrations').update({ status: 'rejected', reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: String(f.get('note') || '').trim() || null }).eq('id', r.id).eq('status', 'pending'));
+    m.close(); toast('تم رفض الطلب'); go('registrations');
+  });
+}
+function regModal(r){
+  const val = x => x ? esc(x) : '—', ltr = x => x ? `<bdi dir="ltr">${esc(x)}</bdi>` : '—';
+  const kv = (k, v, full) => `<div${full ? ' class="full"' : ''}><dt>${k}</dt><dd>${v}</dd></div>`;
+  const age = ageOf(r.birth_date), st = REG_ST[r.status] || ['', 'mut'];
+  const pcard = (kind, title, path) => `<div class="pcard" data-k="${kind}">
+    <div class="pc-h"><span>${title}</span><span class="pc-act">${path && kind === 'ids' ? `<button type="button" class="btn sec sm" data-a="show">${ic('eye', 15)} عرض</button>` : ''}</span></div>
+    <div class="pbox">${path ? (kind === 'ids' ? 'صورة الهوية محمية. اضغط «عرض» لفتحها (يُسجَّل الفتح في سجل الوصول).' : 'جارٍ التحميل…') : 'لم تُرفع صورة'}</div></div>`;
+  openModal('طلب تسجيل', `
+    <div class="d-head"><span class="av">${esc(initials(r.full_name))}</span>
+      <div><h4>${esc(r.full_name)}</h4><div class="tags"><span class="tag ${st[1]}">${st[0]}</span>${r.capacity ? `<span class="tag info">${esc(r.capacity)}</span>` : ''}</div></div></div>
+    <dl class="kv">
+      ${kv('رقم الهاتف', ltr(r.phone))}${kv('البريد الإلكتروني', ltr(r.email))}${kv('رقم البطاقة', ltr(r.national_id))}
+      ${kv('تاريخ الميلاد', ltr(r.birth_date))}${kv('العمر', age != null ? age + ' سنة' : '—')}${kv('الجنس', val(r.gender))}
+      ${kv('محافظة السكن', val(r.governorate))}${kv('المحافظة التابع لها بالاتحاد', val(r.union_governorate))}
+      ${kv('الصفة', val(r.capacity))}${kv('اللجنة / جهة التمثيل', val(r.committee))}
+      ${kv('طالب / خريج', val(r.study_status))}${kv('المرحلة التعليمية', val(r.edu_stage))}
+      ${kv('اسم المدرسة / الجامعة', val(r.institution), true)}${kv('العنوان', val(r.address), true)}
+      ${kv('تاريخ الإرسال', esc(fmtDT(r.created_at)))}
+      ${r.status !== 'pending' ? kv('تمت مراجعته بواسطة', esc(nameOf(r.reviewed_by))) : ''}
+      ${r.review_note ? kv('ملاحظة المراجعة', esc(r.review_note), true) : ''}
+    </dl>
+    <div class="pcards">${pcard('photos', 'الصورة الشخصية', r.photo_path)}${pcard('ids', 'صورة الهوية', r.id_doc_path)}</div>
+    <div class="m-foot sticky"><button type="button" class="btn sec" data-close>إغلاق</button>
+      ${r.status === 'pending' ? `<button type="button" class="btn danger" data-rj>رفض</button><button type="button" class="btn" data-ap>${ic('check', 16)} موافقة</button>` : ''}</div>`,
+  { wide: true, onMount: (el, close) => {
+    const pathOf = k => k === 'photos' ? r.photo_path : r.id_doc_path;
+    const showImg = async kind => {
+      const path = pathOf(kind); if (!path) return;
+      if (kind === 'ids') await db(sb.from('access_log').insert({ registration_id: r.id, action: 'view_reg_id' }));
+      const { data, error } = await sb.storage.from(kind).createSignedUrl(path, 120);
+      if (error) throw error;
+      $(`.pcard[data-k=${kind}] .pbox`, el).innerHTML = `<img src="${esc(data.signedUrl)}" alt="${kind === 'ids' ? 'صورة الهوية' : 'الصورة الشخصية'}">`;
+    };
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-a=show]'); if (b) run(b, () => showImg(b.closest('.pcard').dataset.k)); });
+    const ap = $('[data-ap]', el), rj = $('[data-rj]', el);
+    if (ap) ap.onclick = () => { close(); approveModal(r); };
+    if (rj) rj.onclick = () => { close(); rejectModal(r); };
+    if (r.photo_path) showImg('photos').catch(() => { const bx = $('.pcard[data-k=photos] .pbox', el); if (bx) bx.textContent = 'تعذر تحميل الصورة'; });
+  } });
+}
+
 const VIEWS = {
   dashboard:   { t: 'لوحة التحكم',       n: 'اللوحة',   i: 'layout', admin: true, fn: viewDashboard },
+  registrations: { t: 'طلبات التسجيل', n: 'الطلبات', i: 'inbox', admin: true, fn: viewRegistrations },
   employees:   { t: 'بيانات الأعضاء',    n: 'الأعضاء',  i: 'users',  fn: viewEmployees },
   tasks:       { t: 'المهام',            n: 'المهام',   i: 'tasks',  fn: viewTasks },
   engagement:  { t: 'التفاعل الأسبوعي',  n: 'التفاعل',  i: 'heart',  fn: viewEngagement },
@@ -1002,7 +1197,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.7</div>
+      <div class="side-foot muted">الإصدار 3.8</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1021,6 +1216,7 @@ async function enter(user){
   route();
   // أول دخول: يؤكد الاسم الحقيقي بالعربية مرة واحدة. بعدها: رسالة ترحيب عند كل تسجيل دخول.
   // إن لم يُشغَّل schema.sql 3.5 بعد (العمود غير موجود) نتخطى النافذة بدل أن تتكرر.
+  if (isAdmin()) pendingRegCount().then(setRegBadge);
   if ('name_confirmed_at' in me && !me.name_confirmed_at) nameGate();
   else welcomeOnce();
 }
@@ -1284,15 +1480,15 @@ function memberModal(r){
 }
 
 /* نموذج إضافة / تعديل عضو */
-function employeeModal(emp){
-  const edit = !!emp, e = emp || {};
+/* ---------- نموذج بيانات العضو (يستخدمه المسؤول/الفريق والتسجيل الذاتي العام) ---------- */
+const memberFormHtml = (e, o = {}) => {
+  const edit = !!o.edit, pub = !!o.pub;
   const opts = (list, sel) => list.map(x => `<option${x === sel ? ' selected' : ''}>${esc(x)}</option>`).join('');
-  const m = openModal(edit ? 'تعديل بيانات العضو' : 'إضافة عضو جديد', `
-  <form id="ef" autocomplete="off" novalidate>
+  return `<form id="ef" autocomplete="off" novalidate>${pub ? '<input name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">' : ''}
     <div class="fsec">${ic('user', 16)} البيانات الأساسية</div>
     <div class="grid">
-      <div class="fld"><label>رقم العضوية *</label><input name="membership_no" required maxlength="40" dir="ltr" inputmode="text" value="${esc(e.membership_no)}"></div>
-      <div class="fld span2"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
+      ${pub ? '' : `<div class="fld"><label>رقم العضوية *</label><input name="membership_no" required maxlength="40" dir="ltr" inputmode="text" value="${esc(e.membership_no)}"></div>`}
+      <div class="fld ${pub ? 'full' : 'span2'}"><label>الاسم الكامل (بالعربية) *</label><input name="full_name" required maxlength="120" lang="ar" placeholder="الاسم الأول والثاني والثالث والرابع" value="${esc(e.full_name)}"></div>
       <div class="fld"><label>رقم الهاتف *</label><input name="phone" type="tel" required dir="ltr" inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX" value="${esc(e.phone)}"></div>
       <div class="fld"><label>رقم البطاقة (14 رقماً) *</label><input name="national_id" required dir="ltr" inputmode="numeric" maxlength="14" placeholder="14 رقماً" value="${esc(e.national_id)}"></div>
       <div class="fld"><label>البريد الإلكتروني *</label><input name="email" type="email" required dir="ltr" inputmode="email" maxlength="150" autocomplete="off" placeholder="name@example.com" value="${esc(e.email)}"></div>
@@ -1316,15 +1512,18 @@ function employeeModal(emp){
     </div>
     <div class="fsec">${ic('image', 16)} الصور</div>
     <div class="grid">
-      <div class="fld"><label>الصورة الشخصية${edit && e.photo_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="photo" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
-      <div class="fld"><label>صورة الهوية${edit && e.id_doc_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="idimg" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
+      <div class="fld"><label>الصورة الشخصية${pub ? ' (اختيارية)' : ''}${edit && e.photo_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="photo" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
+      <div class="fld"><label>صورة الهوية${pub ? ' *' : ''}${edit && e.id_doc_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="idimg" type="file" accept="image/*"${pub ? ' required' : ''}><img class="prev" hidden alt=""></div>
     </div>
-    ${(!edit || !e.consent) ? `<label class="consent"><input type="checkbox" name="consent"${edit ? '' : ' required'}><span>أقرّ بأن العضو وافق كتابياً على جمع بياناته وصورته وصورة هويته لأغراض الموارد البشرية.</span></label>` : ''}
-    <div class="m-foot sticky"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${edit ? 'حفظ التعديلات' : 'حفظ'}</button></div>
-  </form>`, { wide: true });
+    ${(!edit || !e.consent) ? `<label class="consent"><input type="checkbox" name="consent"${edit ? '' : ' required'}><span>${pub ? 'أقرّ بأنني أوافق على جمع بياناتي وصورتي وصورة هويتي لأغراض الموارد البشرية، وأن البيانات التي أدخلتها صحيحة.' : 'أقرّ بأن العضو وافق كتابياً على جمع بياناته وصورته وصورة هويته لأغراض الموارد البشرية.'}</span></label>` : ''}
+    ${pub ? '<div class="m-foot"><button class="btn block">إرسال الطلب</button></div>' : `<div class="m-foot sticky"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${edit ? 'حفظ التعديلات' : 'حفظ'}</button></div>`}
+  </form>`;
+};
 
+/* ربط سلوك النموذج: اللجنة/المحافظة حسب الصفة، حساب العمر، معاينة الصور */
+function wireMemberForm(root){
   // إظهار الاختيارات بعد اختيار الصفة فقط: لجان لمعظم الصفات، ومحافظات للمنسق ونائب المنسق
-  const cap = $('[name=capacity]', m.el), box = $('#commBox', m.el);
+  const cap = $('[name=capacity]', root), box = $('#commBox', root);
   const sync = () => {
     const on = !!cap.value, was = !box.hidden, kind = isCoord(cap.value) ? 'unit' : 'com';
     if (box.dataset.kind !== kind){
@@ -1339,52 +1538,68 @@ function employeeModal(emp){
     if (on && !was){ box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise'); }
   };
   cap.addEventListener('change', sync); sync();
-  const bd = $('[name=birth_date]', m.el), av = $('#ageView', m.el);
+  const bd = $('[name=birth_date]', root), av = $('#ageView', root);
   const showAge = () => { const a = ageOf(bd.value); av.value = a != null && a >= 0 ? a + ' سنة' : ''; };
   bd.addEventListener('input', showAge); bd.addEventListener('change', showAge);
 
-  $$('input[type=file]', m.el).forEach(inp => inp.addEventListener('change', () => {
+  $$('input[type=file]', root).forEach(inp => inp.addEventListener('change', () => {
     const img = inp.parentElement.querySelector('.prev'), f = inp.files[0];
     if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
     if (f && /^image\//.test(f.type)){ img.src = URL.createObjectURL(f); img.hidden = false; } else { img.hidden = true; }
   }));
+}
+
+const readMemberRow = f => {
+  const row = {
+    full_name: String(f.get('full_name')).replace(/\s+/g, ' ').trim(),
+    phone: toLatin(f.get('phone')).replace(/[\s\-()]/g, ''),
+    national_id: toLatin(f.get('national_id')).replace(/\s/g, ''),
+    email: String(f.get('email') || '').trim().toLowerCase(),
+    birth_date: String(f.get('birth_date') || '').trim(),
+    governorate: f.get('governorate'),
+    address: String(f.get('address')).trim(),
+    capacity: f.get('capacity'),
+    committee: f.get('committee'),
+    gender: f.get('gender'),
+    union_governorate: f.get('union_governorate'),
+    study_status: f.get('study_status'),
+    edu_stage: f.get('edu_stage'),
+    institution: String(f.get('institution') || '').replace(/\s+/g, ' ').trim()
+  };
+  if (f.has('membership_no')) row.membership_no = toLatin(f.get('membership_no')).trim();
+  return row;
+};
+/* يعيد نص الخطأ العربي، أو '' إن كانت البيانات سليمة */
+const memberErr = (row, needMno) => {
+  if (needMno && !row.membership_no) return 'رقم العضوية مطلوب';
+  if (!/^[\u0621-\u064A\s]+$/.test(row.full_name)) return 'اكتب الاسم بالعربية فقط (حروف عربية بدون أرقام أو رموز)';
+  if (row.full_name.split(' ').length < 3) return 'اكتب الاسم كاملاً (ثلاثة أسماء على الأقل)';
+  if (!/^\+?\d{8,15}$/.test(row.phone)) return 'رقم الهاتف غير صالح (أرقام فقط)';
+  if (!/^\d{14}$/.test(row.national_id)) return 'رقم البطاقة يجب أن يكون 14 رقماً';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(row.email) || row.email.length > 150) return 'البريد الإلكتروني غير صالح';
+  if (!isDate(row.birth_date)) return 'تاريخ الميلاد مطلوب';
+  if (row.birth_date < '1900-01-01' || row.birth_date > today()) return 'تاريخ الميلاد غير صالح';
+  if (!GOVS.includes(row.governorate)) return 'اختر المحافظة';
+  if (!row.address) return 'العنوان مطلوب';
+  if (!CAPS.includes(row.capacity)) return 'اختر الصفة';
+  if (!commList(row.capacity).includes(row.committee)) return isCoord(row.capacity) ? 'اختر المحافظة التي ينسّق لها' : 'اختر اللجنة أو جهة التمثيل';
+  if (!GENDERS.includes(row.gender)) return 'اختر الجنس';
+  if (!GOVS.includes(row.union_governorate)) return 'اختر المحافظة التابع لها بالاتحاد';
+  if (!STUDY.includes(row.study_status)) return 'اختر: طالب أو خريج';
+  if (!EDU_STAGES.includes(row.edu_stage)) return 'اختر المرحلة التعليمية';
+  if (!row.institution) return 'اسم المدرسة / الجامعة مطلوب';
+  return '';
+};
+
+function employeeModal(emp){
+  const edit = !!emp, e = emp || {};
+  const m = openModal(edit ? 'تعديل بيانات العضو' : 'إضافة عضو جديد', memberFormHtml(e, { edit }), { wide: true });
+  wireMemberForm(m.el);
 
   onSubmit($('#ef', m.el), async f => {
     const bad = msg => { toast(msg, true); return false; };
-    const row = {
-      membership_no: toLatin(f.get('membership_no')).trim(),
-      full_name: String(f.get('full_name')).replace(/\s+/g, ' ').trim(),
-      phone: toLatin(f.get('phone')).replace(/[\s\-()]/g, ''),
-      national_id: toLatin(f.get('national_id')).replace(/\s/g, ''),
-      email: String(f.get('email') || '').trim().toLowerCase(),
-      birth_date: String(f.get('birth_date') || '').trim(),
-      governorate: f.get('governorate'),
-      address: String(f.get('address')).trim(),
-      capacity: f.get('capacity'),
-      committee: f.get('committee'),
-      gender: f.get('gender'),
-      union_governorate: f.get('union_governorate'),
-      study_status: f.get('study_status'),
-      edu_stage: f.get('edu_stage'),
-      institution: String(f.get('institution') || '').replace(/\s+/g, ' ').trim()
-    };
-    if (!row.membership_no) return bad('رقم العضوية مطلوب');
-    if (!/^[\u0621-\u064A\s]+$/.test(row.full_name)) return bad('اكتب الاسم بالعربية فقط (حروف عربية بدون أرقام أو رموز)');
-    if (row.full_name.split(' ').length < 3) return bad('اكتب الاسم كاملاً (ثلاثة أسماء على الأقل)');
-    if (!/^\+?\d{8,15}$/.test(row.phone)) return bad('رقم الهاتف غير صالح (أرقام فقط)');
-    if (!/^\d{14}$/.test(row.national_id)) return bad('رقم البطاقة يجب أن يكون 14 رقماً');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(row.email) || row.email.length > 150) return bad('البريد الإلكتروني غير صالح');
-    if (!isDate(row.birth_date)) return bad('تاريخ الميلاد مطلوب');
-    if (row.birth_date < '1900-01-01' || row.birth_date > today()) return bad('تاريخ الميلاد غير صالح');
-    if (!GOVS.includes(row.governorate)) return bad('اختر المحافظة');
-    if (!row.address) return bad('العنوان مطلوب');
-    if (!CAPS.includes(row.capacity)) return bad('اختر الصفة');
-    if (!commList(row.capacity).includes(row.committee)) return bad(isCoord(row.capacity) ? 'اختر المحافظة التي ينسّق لها' : 'اختر اللجنة أو جهة التمثيل');
-    if (!GENDERS.includes(row.gender)) return bad('اختر الجنس');
-    if (!GOVS.includes(row.union_governorate)) return bad('اختر المحافظة التابع لها بالاتحاد');
-    if (!STUDY.includes(row.study_status)) return bad('اختر: طالب أو خريج');
-    if (!EDU_STAGES.includes(row.edu_stage)) return bad('اختر المرحلة التعليمية');
-    if (!row.institution) return bad('اسم المدرسة / الجامعة مطلوب');
+    const row = readMemberRow(f);
+    const err = memberErr(row, true); if (err) return bad(err);
     if (!edit && !f.get('consent')) return bad('يجب تأكيد موافقة العضو أولاً');
     const dup = empCache.find(x => x.id !== e.id && (x.membership_no === row.membership_no || x.national_id === row.national_id));
     if (dup) return bad(dup.membership_no === row.membership_no ? 'رقم العضوية مستخدم مسبقاً' : 'رقم البطاقة مسجَّل مسبقاً');
@@ -1619,14 +1834,15 @@ async function viewPerformance(tok){
 
 /* ================= سجل الوصول (مسؤول) ================= */
 async function viewLog(tok){
-  const [logs, emps] = await Promise.all([
+  const [logs, emps, regs] = await Promise.all([
     db(sb.from('access_log').select('*').order('at', { ascending: false }).limit(300)),
-    db(sb.from('employees').select('id,full_name'))
+    db(sb.from('employees').select('id,full_name')),
+    db(sb.from('registrations').select('id,full_name'))
   ]);
-  const en = id => id ? ((emps.find(e => e.id === id) || {}).full_name || 'عضو محذوف') : '—';
+  const en = (id, rid) => id ? ((emps.find(e => e.id === id) || {}).full_name || 'عضو محذوف') : rid ? 'طلب: ' + ((regs.find(x => x.id === rid) || {}).full_name || 'محذوف') : '—';
   paint(tok, `${pageHead('من فتح أو نزّل صور الهوية، ومتى.')}<div class="card"><h2>آخر 300 عملية فتح أو تنزيل لصور الهوية <span class="muted">السجل للقراءة فقط ولا يمكن تعديله من النظام</span></h2><div class="tbl">
   ${logs.length ? `<table><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>العضو</th></tr></thead><tbody>
-  ${logs.map((l, i) => `<tr style="--i:${Math.min(i, 12)}"><td>${esc(fmtDT(l.at))}</td><td>${esc(nameOf(l.user_id))}</td><td><span class="tag info">${esc(ACTION_LBL[l.action] || l.action)}</span></td><td>${esc(en(l.employee_id))}</td></tr>`).join('')}</tbody></table>` : emptyBox('shield', 'لا توجد عمليات مسجّلة بعد.')}</div></div>`);
+  ${logs.map((l, i) => `<tr style="--i:${Math.min(i, 12)}"><td>${esc(fmtDT(l.at))}</td><td>${esc(nameOf(l.user_id))}</td><td><span class="tag info">${esc(ACTION_LBL[l.action] || l.action)}</span></td><td>${esc(en(l.employee_id, l.registration_id))}</td></tr>`).join('')}</tbody></table>` : emptyBox('shield', 'لا توجد عمليات مسجّلة بعد.')}</div></div>`);
 }
 
 /* ================= لوحة التحكم (مسؤول) ================= */
@@ -1772,7 +1988,7 @@ async function viewDashboard(tok){
     return { name: p.full_name || p.email, added: emps.filter(x => x.created_by === p.id).length, total: mine.length, d, ot, od: ss.filter(s => s.k === 'overdue').length, rate: d ? Math.round(ot / d * 100) : null, eng: my.length, sat: avg(my, 'satisfaction') };
   });
   const parts = [{ v: cnt.ontime, c: 'var(--ok)', l: 'سُلّمت في الوقت' }, { v: cnt['late-d'], c: 'var(--warn)', l: 'سُلّمت متأخرة' }, { v: cnt.pending, c: 'var(--pri)', l: 'قيد التنفيذ' }, { v: cnt.overdue, c: 'var(--bad)', l: 'متأخرة' }];
-  const en = id => (emps.find(e => e.id === id) || {}).full_name || '—';
+  const en = (id, rid) => id ? ((emps.find(e => e.id === id) || {}).full_name || '—') : rid ? 'طلب تسجيل' : '—';
 
   if (!paint(tok, `
   ${pageHead('ملخص الأعضاء والمهام والتفاعل والأداء في صفحة واحدة.')}
@@ -1795,7 +2011,7 @@ async function viewDashboard(tok){
   </div>
   <div class="cols">
     <div class="card"><h2>يحتاج انتباهك</h2>${overdue.length ? overdue.map(x => `<div class="list-i"><div><b>${esc(x.t.title)}</b><div class="muted">${esc(nameOf(x.t.assigned_to))}</div></div><span class="tag bad">متأخرة ${esc(daysAr(-daysTo(x.t.due_date)))}</span></div>`).join('') : emptyBox('check', 'لا توجد مهام متأخرة. عمل رائع!')}</div>
-    <div class="card"><h2>آخر عمليات الوصول للهويات <a href="#log" class="muted">عرض الكل</a></h2>${logs.length ? logs.map(l => `<div class="list-i"><div><b>${esc(nameOf(l.user_id))}</b><div class="muted">${esc(ACTION_LBL[l.action] || l.action)}: ${esc(en(l.employee_id))}</div></div><span class="muted">${esc(fmtDT(l.at))}</span></div>`).join('') : emptyBox('shield', 'لا توجد عمليات بعد.')}</div>
+    <div class="card"><h2>آخر عمليات الوصول للهويات <a href="#log" class="muted">عرض الكل</a></h2>${logs.length ? logs.map(l => `<div class="list-i"><div><b>${esc(nameOf(l.user_id))}</b><div class="muted">${esc(ACTION_LBL[l.action] || l.action)}: ${esc(en(l.employee_id, l.registration_id))}</div></div><span class="muted">${esc(fmtDT(l.at))}</span></div>`).join('') : emptyBox('shield', 'لا توجد عمليات بعد.')}</div>
   </div>
   <div class="card"><h2>أداء أعضاء الفريق</h2><div class="tbl"><table><thead><tr><th>العضو</th><th>أعضاء أضافهم</th><th>مهام</th><th>مسلّمة</th><th>في الوقت</th><th>متأخرة</th><th>نسبة الالتزام</th><th>التفاعل</th><th>الرضا</th></tr></thead><tbody>
     ${perMember.map((m, i) => `<tr style="--i:${Math.min(i, 12)}"><td><div class="who"><span class="av">${esc(initials(m.name))}</span><b>${esc(m.name)}</b></div></td><td>${m.added}</td><td>${m.total}</td><td>${m.d}</td><td>${m.ot}</td><td>${m.od ? `<span class="tag bad">${m.od}</span>` : 0}</td>
