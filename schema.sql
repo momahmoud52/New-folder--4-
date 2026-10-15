@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.8 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.9 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -8,6 +8,7 @@
 -- 3.6: صفتان جديدتان (منسق / نائب منسق) واختيار محافظتهما من 27 محافظة.
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
+-- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -726,9 +727,21 @@ create policy "registrations_admin_all" on public.registrations
   using (public.is_admin())
   with check (public.is_admin());
 
+-- [3.9] عضو الفريق يرى الطلبات «قيد المراجعة» (ليوافق عليها) والطلبات التي وافق عليها هو.
+--       لا يعدّل ولا يحذف ولا يرفض: الموافقة تتم عبر الدالة approve_registration فقط، والرفض للمسؤول.
+drop policy if exists "registrations_member_select" on public.registrations;
+create policy "registrations_member_select" on public.registrations
+  for select to authenticated
+  using (status = 'pending' or reviewed_by = auth.uid());
+
 revoke all on public.registrations from anon, authenticated;
 grant insert on public.registrations to anon;
-grant select, insert, update, delete on public.registrations to authenticated;
+-- القراءة بأعمدة محددة: عمود submit_ip (عنوان IP) لا يقرؤه أحد، يستخدمه الحد الأقصى للمعدل فقط
+grant select (id, membership_no, full_name, phone, email, national_id, birth_date, gender, governorate, union_governorate,
+              address, capacity, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent,
+              status, reviewed_by, reviewed_at, review_note, employee_id, created_at)
+  on public.registrations to authenticated;
+grant insert, update, delete on public.registrations to authenticated;
 
 -- سجل الوصول يشمل فتح صورة هوية داخل طلب تسجيل لم يُعتمد بعد
 alter table public.access_log add column if not exists registration_id uuid references public.registrations(id) on delete set null;
@@ -738,8 +751,10 @@ create index if not exists registrations_ip_idx     on public.registrations (sub
 -- لا يُقبل أكثر من طلب «قيد المراجعة» لنفس رقم البطاقة (يمنع تكرار الإرسال)
 create unique index if not exists registrations_pending_nid on public.registrations (national_id) where status = 'pending';
 
--- الموافقة: تنقل الطلب إلى جدول الأعضاء (يملكه المسؤول الموافق) وتُغلق الطلب. للمسؤول فقط.
-create or replace function public.approve_registration(p_id uuid, p_membership_no text default null)
+-- الموافقة: تنقل الطلب إلى جدول الأعضاء وتُغلقه. [3.9] يستطيع أي حساب في الفريق أن يوافق، ومن يوافق يصبح
+-- المسؤول عن بيانات العضو (created_by). المسؤول وحده يستطيع تعيين عضو آخر من الفريق مسؤولاً (p_owner).
+drop function if exists public.approve_registration(uuid, text);
+create or replace function public.approve_registration(p_id uuid, p_membership_no text default null, p_owner uuid default null)
 returns uuid
 language plpgsql
 security definer
@@ -749,8 +764,16 @@ declare
   r public.registrations;
   mno text;
   new_id uuid;
+  owner_id uuid;
 begin
-  if not public.is_admin() then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+  if auth.uid() is null or not exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'ليست لديك صلاحية لهذه العملية';
+  end if;
+  owner_id := coalesce(p_owner, auth.uid());
+  if owner_id <> auth.uid() then
+    if not public.is_admin() then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+    if not exists (select 1 from public.profiles where id = owner_id) then raise exception 'المسؤول المختار غير موجود'; end if;
+  end if;
   select * into r from public.registrations where id = p_id for update;
   if not found then raise exception 'الطلب غير موجود'; end if;
   if r.status <> 'pending' then raise exception 'تمت مراجعة هذا الطلب مسبقاً'; end if;
@@ -767,7 +790,7 @@ begin
      address, capacity, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent, status, created_by)
   values
     (mno, r.full_name, r.phone, r.email, r.national_id, r.birth_date, r.gender, r.governorate, r.union_governorate,
-     r.address, r.capacity, r.committee, r.study_status, r.edu_stage, r.institution, r.photo_path, r.id_doc_path, true, 'active', auth.uid())
+     r.address, r.capacity, r.committee, r.study_status, r.edu_stage, r.institution, r.photo_path, r.id_doc_path, true, 'active', owner_id)
   returning id into new_id;
 
   update public.registrations
@@ -776,8 +799,24 @@ begin
   return new_id;
 end;
 $$;
-revoke all on function public.approve_registration(uuid, text) from public, anon;
-grant execute on function public.approve_registration(uuid, text) to authenticated;
+revoke all on function public.approve_registration(uuid, text, uuid) from public, anon;
+grant execute on function public.approve_registration(uuid, text, uuid) to authenticated;
+
+-- [3.9] قراءة ملفات reg/ لأعضاء الفريق: صور الطلبات «قيد المراجعة» (للمراجعة قبل الموافقة)،
+-- وصور الأعضاء الذين صاروا تحت مسؤوليتهم بعد الموافقة. غير ذلك لا يقرؤه إلا المسؤول.
+drop policy if exists "hr_files_select_reg" on storage.objects;
+create policy "hr_files_select_reg" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id in ('photos','ids')
+    and name like 'reg/%'
+    and (
+      exists (select 1 from public.registrations r
+              where r.status = 'pending' and (r.photo_path = name or r.id_doc_path = name))
+      or exists (select 1 from public.employees e
+                 where e.created_by = auth.uid() and (e.photo_path = name or e.id_doc_path = name))
+    )
+  );
 
 -- رفع الصور من النموذج العام: إدراج فقط داخل المجلد reg/ وباسم UUID وصيغة jpg (يضغطها المتصفح).
 -- لا قراءة ولا تعديل ولا حذف للزائر. الحد 2MB وصيغ الصور مفروضان على الـ bucket نفسه.

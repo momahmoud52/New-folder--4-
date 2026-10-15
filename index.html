@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.8
+   نظام التصميم — الإصدار 3.9
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -1063,6 +1063,7 @@ function showRegister(){
 
 /* ================= طلبات التسجيل الذاتي (مسؤول) ================= */
 let regCache = [], regF = 'pending';
+const REG_COLS = 'id,membership_no,full_name,phone,email,national_id,birth_date,gender,governorate,union_governorate,address,capacity,committee,study_status,edu_stage,institution,photo_path,id_doc_path,consent,status,reviewed_by,reviewed_at,review_note,employee_id,created_at';
 const REG_ST = { pending: ['قيد المراجعة', 'warn'], approved: ['تمت الموافقة', 'ok'], rejected: ['مرفوض', 'bad'] };
 async function pendingRegCount(){
   try { const { count } = await sb.from('registrations').select('id', { count: 'exact', head: true }).eq('status', 'pending'); return count || 0; } catch (e) { return 0; }
@@ -1075,14 +1076,14 @@ function setRegBadge(n){
   b.textContent = n > 99 ? '99+' : n;
 }
 async function viewRegistrations(tok){
-  regCache = await db(sb.from('registrations').select('*').order('created_at', { ascending: false }).limit(500));
+  regCache = await db(sb.from('registrations').select(REG_COLS).order('created_at', { ascending: false }).limit(500));
   setRegBadge(regCache.filter(r => r.status === 'pending').length);
   const link = location.origin + location.pathname + '#register';
   const cnt = k => k === 'all' ? regCache.length : regCache.filter(r => r.status === k).length;
   if (!paint(tok, `
-  ${pageHead('يملأ العضو بياناته من الرابط العام، وتصل هنا للمراجعة. وافق لتنتقل إلى سجل الأعضاء أو ارفض.', `<button class="btn sec" id="copyReg" title="انسخ الرابط وأرسله للأعضاء">${ic('link')} نسخ رابط التسجيل</button>`)}
+  ${pageHead(isAdmin() ? 'يملأ العضو بياناته من الرابط العام وتصل هنا للمراجعة. وافق (واختر المسؤول عن بياناته) أو ارفض.' : 'طلبات التسجيل الذاتي المتاحة لكل الفريق. من يوافق على طلب يصبح المسؤول عن بيانات العضو ويظهر في «الأعضاء» عنده.', `<button class="btn sec" id="copyReg" title="انسخ الرابط وأرسله للأعضاء">${ic('link')} نسخ رابط التسجيل</button>`)}
   <div class="card flush" data-nr>
-    <div class="reg-tools"><div class="chips" id="rgc">${[['pending', 'قيد المراجعة'], ['approved', 'تمت الموافقة'], ['rejected', 'مرفوضة'], ['all', 'الكل']].map(([k, l]) => `<button data-v="${k}"${k === regF ? ' class="on"' : ''}>${l} <small>${cnt(k)}</small></button>`).join('')}</div>
+    <div class="reg-tools"><div class="chips" id="rgc">${[['pending', 'قيد المراجعة'], ['approved', isAdmin() ? 'تمت الموافقة' : 'وافقت عليها'], ...(isAdmin() ? [['rejected', 'مرفوضة']] : []), ['all', 'الكل']].map(([k, l]) => `<button data-v="${k}"${k === regF ? ' class="on"' : ''}>${l} <small>${cnt(k)}</small></button>`).join('')}</div>
       <div class="search">${ic('search')}<input id="rq" type="search" placeholder="ابحث بالاسم أو الهاتف أو البريد" autocomplete="off"></div></div>
     <div class="tbl" id="rgl"></div>
   </div>`)) return;
@@ -1100,7 +1101,7 @@ async function viewRegistrations(tok){
       <td class="hide-lg">${esc(r.governorate)}</td><td class="hide-md" style="white-space:nowrap">${esc(ymd(r.created_at))}</td>
       <td><span class="tag ${st[1]}">${st[0]}</span></td>
       <td><div class="row-actions"><button class="btn ghost sm icon" data-a="view" data-id="${r.id}" title="عرض التفاصيل والصور" aria-label="عرض">${ic('eye')}</button>
-        ${r.status === 'pending' ? `<button class="btn sm" data-a="approve" data-id="${r.id}">${ic('check', 15)} موافقة</button><button class="btn danger sm icon" data-a="reject" data-id="${r.id}" title="رفض" aria-label="رفض">${ic('x')}</button>` : ''}</div></td></tr>`; }).join('')}</tbody></table>`;
+        ${r.status === 'pending' ? `<button class="btn sm" data-a="approve" data-id="${r.id}">${ic('check', 15)} موافقة</button>${isAdmin() ? `<button class="btn danger sm icon" data-a="reject" data-id="${r.id}" title="رفض" aria-label="رفض">${ic('x')}</button>` : ''}` : ''}</div></td></tr>`; }).join('')}</tbody></table>`;
   };
   draw();
   $('#rgc').onclick = e => { const b = e.target.closest('button[data-v]'); if (b){ regF = b.dataset.v; draw(); } };
@@ -1110,19 +1111,20 @@ async function viewRegistrations(tok){
     const r = regCache.find(x => x.id === b.dataset.id); if (!r) return;
     if (b.dataset.a === 'view') regModal(r);
     if (b.dataset.a === 'approve') approveModal(r);
-    if (b.dataset.a === 'reject') rejectModal(r);
+    if (b.dataset.a === 'reject' && isAdmin()) rejectModal(r);
   });
 }
 function approveModal(r, after){
   const m = openModal('الموافقة على الطلب', `
-    <p class="cmsg" style="margin-top:0">سيُضاف <b>${esc(r.full_name)}</b> إلى سجل الأعضاء بحالة «نشط». اكتب رقم العضوية الخاص به.</p>
+    <p class="cmsg" style="margin-top:0">سيُضاف <b>${esc(r.full_name)}</b> إلى سجل الأعضاء بحالة «نشط»، ${isAdmin() ? 'ويكون المسؤول عن بياناته من تختاره أدناه.' : '<b>وتصبح أنت المسؤول عن بياناته</b> (تعدّلها وتقيّم أداءه وتصدّرها)، ولا يراها غيرك من الفريق.'}</p>
     <form id="af"><div class="fld"><label>رقم العضوية *</label><input name="mno" required maxlength="40" dir="ltr" value="${esc(r.membership_no || '')}"></div>
+    ${isAdmin() ? `<div class="fld"><label>المسؤول عن بيانات العضو *</label><select name="owner" required>${team.map(t => `<option value="${t.id}"${t.id === me.id ? ' selected' : ''}>${esc(t.full_name || t.email)}${t.role === 'admin' ? ' (مسؤول)' : ''}</option>`).join('')}</select></div>` : ''}
     <div class="m-foot"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${ic('check', 16)} موافقة وإضافة</button></div></form>`);
   onSubmit($('#af', m.el), async f => {
     const mno = toLatin(f.get('mno')).trim(); if (!mno) return toast('رقم العضوية مطلوب', true);
-    const { error } = await sb.rpc('approve_registration', { p_id: r.id, p_membership_no: mno });
+    const { error } = await sb.rpc('approve_registration', { p_id: r.id, p_membership_no: mno, p_owner: isAdmin() ? f.get('owner') : null });
     if (error) throw error;
-    m.close(); toast('تمت الموافقة وأُضيف العضو إلى السجل'); empCache = []; go('registrations');
+    m.close(); toast(isAdmin() ? 'تمت الموافقة وأُضيف العضو إلى السجل' : 'تمت الموافقة، وأصبحت المسؤول عن بيانات هذا العضو'); empCache = []; go('registrations');
   });
 }
 function rejectModal(r){
@@ -1153,12 +1155,12 @@ function regModal(r){
       ${kv('طالب / خريج', val(r.study_status))}${kv('المرحلة التعليمية', val(r.edu_stage))}
       ${kv('اسم المدرسة / الجامعة', val(r.institution), true)}${kv('العنوان', val(r.address), true)}
       ${kv('تاريخ الإرسال', esc(fmtDT(r.created_at)))}
-      ${r.status !== 'pending' ? kv('تمت مراجعته بواسطة', esc(nameOf(r.reviewed_by))) : ''}
+      ${r.status !== 'pending' && isAdmin() ? kv('تمت مراجعته بواسطة', esc(nameOf(r.reviewed_by))) : ''}
       ${r.review_note ? kv('ملاحظة المراجعة', esc(r.review_note), true) : ''}
     </dl>
     <div class="pcards">${pcard('photos', 'الصورة الشخصية', r.photo_path)}${pcard('ids', 'صورة الهوية', r.id_doc_path)}</div>
     <div class="m-foot sticky"><button type="button" class="btn sec" data-close>إغلاق</button>
-      ${r.status === 'pending' ? `<button type="button" class="btn danger" data-rj>رفض</button><button type="button" class="btn" data-ap>${ic('check', 16)} موافقة</button>` : ''}</div>`,
+      ${r.status === 'pending' ? `${isAdmin() ? '<button type="button" class="btn danger" data-rj>رفض</button>' : ''}<button type="button" class="btn" data-ap>${ic('check', 16)} موافقة</button>` : ''}</div>`,
   { wide: true, onMount: (el, close) => {
     const pathOf = k => k === 'photos' ? r.photo_path : r.id_doc_path;
     const showImg = async kind => {
@@ -1178,7 +1180,7 @@ function regModal(r){
 
 const VIEWS = {
   dashboard:   { t: 'لوحة التحكم',       n: 'اللوحة',   i: 'layout', admin: true, fn: viewDashboard },
-  registrations: { t: 'طلبات التسجيل', n: 'الطلبات', i: 'inbox', admin: true, fn: viewRegistrations },
+  registrations: { t: 'طلبات التسجيل', n: 'الطلبات', i: 'inbox', fn: viewRegistrations },
   employees:   { t: 'بيانات الأعضاء',    n: 'الأعضاء',  i: 'users',  fn: viewEmployees },
   tasks:       { t: 'المهام',            n: 'المهام',   i: 'tasks',  fn: viewTasks },
   engagement:  { t: 'التفاعل الأسبوعي',  n: 'التفاعل',  i: 'heart',  fn: viewEngagement },
@@ -1197,7 +1199,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.8</div>
+      <div class="side-foot muted">الإصدار 3.9</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1216,7 +1218,7 @@ async function enter(user){
   route();
   // أول دخول: يؤكد الاسم الحقيقي بالعربية مرة واحدة. بعدها: رسالة ترحيب عند كل تسجيل دخول.
   // إن لم يُشغَّل schema.sql 3.5 بعد (العمود غير موجود) نتخطى النافذة بدل أن تتكرر.
-  if (isAdmin()) pendingRegCount().then(setRegBadge);
+  pendingRegCount().then(setRegBadge);
   if ('name_confirmed_at' in me && !me.name_confirmed_at) nameGate();
   else welcomeOnce();
 }
