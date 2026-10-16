@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.9
+   نظام التصميم — الإصدار 3.10
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -453,6 +453,22 @@ th.c,td.c{text-align:center}
 .nav-i{position:relative}
 .nav-badge{font-style:normal;font-size:11.5px;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:inline-grid;place-items:center;background:var(--bad);color:#fff;margin-inline-start:auto}
 @media (max-width:900px){.nav-badge{position:absolute;top:2px;inset-inline-end:6px;min-width:17px;height:17px;font-size:10.5px;padding:0 4px}}
+.reg-card.narrow{width:min(520px,100%)}
+.reg-top-r a.pub-link{font-size:14px;font-weight:600;color:var(--mut);padding:8px 10px;border-radius:var(--r-ctl);text-decoration:none}
+.reg-top-r a.pub-link:hover{color:var(--ink);background:var(--surface2)}
+.reg-top-r a.pub-link.on{color:var(--pri);background:var(--pri-soft)}
+.me-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px}
+.me-head h1{margin:0}
+.me-head .sub{margin:4px 0 0}
+.me-sum{display:grid;grid-template-columns:200px 1fr;gap:22px;align-items:center;margin:16px 0 22px;padding:20px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r)}
+.me-big{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px;border-radius:var(--r);background:var(--ok-soft);color:var(--ok)}
+.me-big.warn{background:var(--warn-soft);color:var(--warn)}
+.me-big.bad{background:var(--bad-soft);color:var(--bad)}
+.me-big span{font-size:13px;font-weight:600}
+.me-big b{font-size:44px;line-height:1.1}
+.me-big small{font-size:12.5px;opacity:.85}
+.me-h2{font-size:17px;margin:0 0 10px}
+@media (max-width:640px){.me-sum{grid-template-columns:1fr}.reg-top-r a.pub-link{padding:6px 7px;font-size:13px}.reg-top .brand b{display:none}}
 </style>
 </head>
 <body>
@@ -936,14 +952,14 @@ async function init(){
   sb.auth.onAuthStateChange(ev => {
     if (ev === 'SIGNED_OUT' && me && !loggingOut){ resetState(); showLogin(); toast('انتهت الجلسة، سجّل الدخول من جديد', true); }
   });
-  window.addEventListener('hashchange', () => { if (me) route(); else if (location.hash === '#register') showRegister(); else if (!$('.login')) showLogin(); });
+  window.addEventListener('hashchange', () => { if (me) route(); else if (location.hash === '#register') showRegister(); else if (location.hash === '#evaluation') showMyEval(); else if (!$('.login')) showLogin(); });
   document.addEventListener('click', e => { if (e.target.closest('[data-retry]')) route(); });
   let last = 0; // خروج تلقائي عند الخمول
   ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev => addEventListener(ev, () => { last = Date.now(); }, { passive: true }));
   last = Date.now();
   setInterval(() => { if (me && Date.now() - last > IDLE_MIN * 60000) logout(true); }, 30000);
   const { data: { session } } = await sb.auth.getSession();
-  if (session) enter(session.user); else if (location.hash === '#register') showRegister(); else showLogin();
+  if (session) enter(session.user); else if (location.hash === '#register') showRegister(); else if (location.hash === '#evaluation') showMyEval(); else showLogin();
 }
 function resetState(){
   me = null; team = []; empCache = []; taskCache = []; thumbs = { at: 0, map: {} }; viewTok++;
@@ -986,7 +1002,7 @@ function showLogin(){
           <button type="button" class="btn ghost icon sm" id="eye" aria-label="إظهار كلمة المرور">${ic('eye')}</button></div></div>
         <button class="btn block">دخول</button>
         <p class="muted c" style="margin-top:18px">إذا نسيت كلمة المرور، اطلب من المسؤول إعادة تعيينها.</p>
-        <div class="reg-cta"><span>عضو جديد ولا تملك حساباً؟</span><a class="btn sec block" href="#register">${ic('plus')} سجّل بياناتك بنفسك</a></div>
+        <div class="reg-cta"><span>أنت عضو ولا تملك حساباً؟</span><a class="btn sec block" href="#register">${ic('plus')} سجّل بياناتك بنفسك</a><a class="btn sec block" href="#evaluation">${ic('star')} اعرف تقييمك</a></div>
       </form>
     </main>
   </div>`;
@@ -1015,15 +1031,78 @@ async function uploadPublic(bucket, file){
   if (error) throw error;
   return path;
 }
-function showRegister(){
-  const theme = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+/* رأس الصفحات العامة (التسجيل الذاتي + تقييمي) */
+const pubTop = active => `<header class="reg-top">
+    <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
+    <nav class="reg-top-r" aria-label="الصفحات العامة">
+      <a class="pub-link${active === 'register' ? ' on' : ''}" href="#register">تسجيل عضو</a>
+      <a class="pub-link${active === 'evaluation' ? ' on' : ''}" href="#evaluation">تقييمي</a>
+      <button type="button" class="btn ghost icon" id="rTheme" aria-label="تبديل المظهر"></button>
+      <button type="button" class="btn ghost sm" id="rLogin">دخول الفريق</button>
+    </nav></header>`;
+function wirePubTop(){
+  setTheme(document.documentElement.getAttribute('data-theme') || 'light');
+  $('#rTheme').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  $('#rLogin').onclick = () => showLogin();
+}
+
+/* ================= «تقييمي»: العضو يرى درجات تقييماته (#evaluation) — بدون تسجيل دخول ================= */
+function showMyEval(){
   const draw = () => {
     $('#app').innerHTML = `
     <div class="reg">
-      <header class="reg-top">
-        <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
-        <div class="reg-top-r"><button type="button" class="btn ghost icon" id="rTheme" aria-label="تبديل المظهر"></button><button type="button" class="btn ghost sm" id="rLogin">دخول الفريق</button></div>
-      </header>
+      ${pubTop('evaluation')}
+      <main class="reg-main"><div class="reg-card narrow">
+        <h1>اعرف تقييمك</h1>
+        <p class="sub">اكتب رقم العضوية ورقم البطاقة المسجَّلين لدينا لتظهر لك درجات تقييماتك. لا يراها أحد غيرك بهذه الطريقة.</p>
+        <form id="mef" autocomplete="off" novalidate>
+          <input name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="fld"><label for="me_no">رقم العضوية *</label><input id="me_no" name="mno" required maxlength="40" dir="ltr" inputmode="text"></div>
+          <div class="fld"><label for="me_id">رقم البطاقة (14 رقماً) *</label><input id="me_id" name="nid" required maxlength="14" dir="ltr" inputmode="numeric" placeholder="14 رقماً"></div>
+          <div class="m-foot"><button class="btn block">${ic('search')} عرض تقييماتي</button></div>
+        </form>
+      </div></main>
+    </div>`;
+    wirePubTop();
+    onSubmit($('#mef'), async f => {
+      if (f.get('website')) return;
+      const mno = toLatin(f.get('mno')).trim(), nid = toLatin(f.get('nid')).replace(/\s/g, '');
+      if (!mno) return toast('اكتب رقم العضوية', true);
+      if (!/^\d{14}$/.test(nid)) return toast('رقم البطاقة يجب أن يكون 14 رقماً', true);
+      const { data, error } = await sb.rpc('my_evaluations', { p_membership_no: mno, p_national_id: nid });
+      if (error) throw error;
+      if (!data || !data.ok) return toast(data && data.error === 'too_many' ? 'محاولات كثيرة، حاول بعد قليل' : 'لا توجد بيانات مطابقة. تأكد من رقم العضوية ورقم البطاقة', true);
+      result(data);
+    });
+  };
+  const result = d => {
+    window.scrollTo(0, 0);
+    const rows = (d.rows || []).map(r => ({ ...r, month: String(r.month).slice(0, 7), avg: perfScore({ interaction_score: r.interaction, ontime_score: r.ontime, quality_score: r.quality, meetings_score: r.meetings }) }));
+    const overall = rows.length ? rows.reduce((s, r) => s + r.avg, 0) / rows.length : null;
+    const crit = [['interaction', 'التفاعل'], ['ontime', 'تسليم المهام في الموعد'], ['quality', 'الجودة'], ['meetings', 'حضور الاجتماعات']];
+    const cAvg = k => { const v = rows.map(r => r[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    $('.reg-card').classList.remove('narrow');
+    $('.reg-card').innerHTML = `
+      <div class="me-head"><div><h1>مرحباً ${esc(firstName(d.name))}</h1><p class="sub">${esc(d.name)} · رقم العضوية <bdi>${esc(d.membership_no)}</bdi></p></div>
+        <button type="button" class="btn sec" id="meBack">${ic('undo', 16)} خروج</button></div>
+      ${rows.length ? `
+      <div class="me-sum"><div class="me-big ${scoreCls(overall)}"><span>المعدل العام</span><b>${overall.toFixed(1)}</b><small>من 10</small></div>
+        <div class="crit-avg">${crit.map(([k, l]) => { const a = cAvg(k); return `<div class="pr"><span class="ca-l">${l}</span><div class="prog"><i class="${a == null ? '' : scoreCls(a)}" style="--w:${(a || 0) * 10}%"></i></div><b>${a == null ? '—' : a.toFixed(1)}</b></div>`; }).join('')}</div></div>
+      <h2 class="me-h2">تقييماتك الشهرية</h2>
+      <div class="tbl"><table><thead><tr><th>الشهر</th>${crit.map(([, l]) => `<th class="c">${l === 'تسليم المهام في الموعد' ? 'التسليم بالموعد' : l}</th>`).join('')}<th>المعدل من 10</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td style="white-space:nowrap"><b>${esc(r.month)}</b></td>${crit.map(([k]) => `<td class="c">${r[k] != null ? `<span class="scv ${scoreCls(r[k])}">${r[k]}</span>` : '—'}</td>`).join('')}<td><div class="pr"><div class="prog"><i class="${scoreCls(r.avg)}" style="--w:${r.avg * 10}%"></i></div><b>${r.avg.toFixed(1)}</b></div></td></tr>`).join('')}</tbody></table></div>
+      <p class="muted" style="margin:14px 0 0">كل معيار من 10، والمعدل متوسط المعايير المقيَّمة في الشهر.</p>`
+      : emptyBox('star', 'لا توجد تقييمات لك بعد. ستظهر هنا فور تسجيل أول تقييم.')}`;
+    $('#meBack').onclick = draw;
+  };
+  draw();
+}
+
+function showRegister(){
+  const draw = () => {
+    $('#app').innerHTML = `
+    <div class="reg">
+      ${pubTop('register')}
       <main class="reg-main"><div class="reg-card">
         <h1>تسجيل بيانات عضو جديد</h1>
         <p class="sub">املأ بياناتك بنفسك وأرسلها. تصل إلى الإدارة للمراجعة، وتُضاف إلى السجل بعد الموافقة عليها.</p>
@@ -1031,8 +1110,7 @@ function showRegister(){
       </div></main>
     </div>`;
     setTheme(document.documentElement.getAttribute('data-theme') || 'light');
-    $('#rTheme').onclick = () => setTheme(theme());
-    $('#rLogin').onclick = () => showLogin();
+    wirePubTop();
     wireMemberForm($('.reg-card'));
     const t0 = Date.now();
     onSubmit($('#ef'), async f => {
@@ -1199,7 +1277,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.9</div>
+      <div class="side-foot muted">الإصدار 3.10</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>

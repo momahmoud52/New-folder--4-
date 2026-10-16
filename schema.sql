@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.9 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.10 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -9,6 +9,7 @@
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
+-- 3.10: صفحة عامة «تقييمي»: العضو يدخل رقم العضوية ورقم البطاقة فيرى درجات تقييماته فقط (دالة my_evaluations).
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
 -- =====================================================================
 
@@ -827,6 +828,75 @@ create policy "hr_files_public_insert" on storage.objects
     bucket_id in ('photos','ids')
     and name ~ '^reg/[0-9a-f-]{36}\.jpg$'
   );
+
+
+-- ---------------------------------------------------------------------
+-- 11) [جديد 3.10] «تقييمي»: العضو يرى درجات تقييماته بدون حساب
+--     • الاستعلام عبر دالة واحدة فقط (my_evaluations)، ولا يستطيع الزائر قراءة أي جدول.
+--     • يتطلب رقم العضوية + رقم البطاقة معاً (رقم العضوية وحده قابل للتخمين).
+--     • تعيد الدرجات والأشهر فقط: لا ملاحظات المقيِّم ولا اسمه ولا أي بيانات أخرى.
+--     • حدود: 10 محاولات خاطئة/15 دقيقة لكل IP، و8 لكل رقم عضوية، و200 عالمياً.
+-- ---------------------------------------------------------------------
+create table if not exists public.lookup_attempts (
+  id            bigint generated always as identity primary key,
+  ip            text,
+  membership_no text,
+  at            timestamptz not null default now()
+);
+alter table public.lookup_attempts enable row level security;
+revoke all on public.lookup_attempts from anon, authenticated;
+create index if not exists lookup_attempts_at_idx on public.lookup_attempts (at);
+
+create or replace function public.my_evaluations(p_membership_no text, p_national_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  hdr json; v_ip text; mno text; nid text; n int; e public.employees; res jsonb;
+begin
+  begin hdr := nullif(current_setting('request.headers', true), '')::json; exception when others then hdr := null; end;
+  v_ip := nullif(trim(split_part(coalesce(hdr->>'cf-connecting-ip', hdr->>'x-forwarded-for', ''), ',', 1)), '');
+  mno := left(trim(coalesce(p_membership_no, '')), 40);
+  nid := trim(coalesce(p_national_id, ''));
+
+  delete from public.lookup_attempts where at < now() - interval '1 day';
+
+  -- الحدود تُرجع نتيجة بدل رفع استثناء، حتى يُحفظ سجل المحاولات
+  if v_ip is not null then
+    select count(*) into n from public.lookup_attempts where ip = v_ip and at > now() - interval '15 minutes';
+    if n >= 10 then return jsonb_build_object('ok', false, 'error', 'too_many'); end if;
+  end if;
+  select count(*) into n from public.lookup_attempts where membership_no = mno and at > now() - interval '15 minutes';
+  if n >= 8 then return jsonb_build_object('ok', false, 'error', 'too_many'); end if;
+  select count(*) into n from public.lookup_attempts where at > now() - interval '15 minutes';
+  if n >= 200 then return jsonb_build_object('ok', false, 'error', 'too_many'); end if;
+
+  select * into e from public.employees where membership_no = mno and national_id = nid and mno <> '' limit 1;
+  if not found then
+    insert into public.lookup_attempts (ip, membership_no) values (v_ip, mno);
+    return jsonb_build_object('ok', false, 'error', 'not_found');   -- نفس الرد لخطأ الرقم أو خطأ البطاقة
+  end if;
+
+  select jsonb_build_object(
+           'ok', true,
+           'name', e.full_name,
+           'membership_no', e.membership_no,
+           'rows', coalesce((
+             select jsonb_agg(jsonb_build_object(
+                      'month', p.month, 'interaction', p.interaction_score, 'ontime', p.ontime_score,
+                      'quality', p.quality_score, 'meetings', p.meetings_score) order by p.month desc)
+               from public.performance p
+              where p.employee_id = e.id
+                and coalesce(p.interaction_score, p.ontime_score, p.quality_score, p.meetings_score) is not null
+           ), '[]'::jsonb))
+    into res;
+  return res;
+end;
+$$;
+revoke all on function public.my_evaluations(text, text) from public;
+grant execute on function public.my_evaluations(text, text) to anon, authenticated;
 
 -- =====================================================================
 -- إعلام Supabase بتحديث ذاكرة الجداول فوراً (يمنع خطأ: Could not find the column ... in the schema cache)
