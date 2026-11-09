@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.11 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.14 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -9,6 +9,9 @@
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
+-- 3.14: استيراد الأعضاء من Excel (دالة import_members): إضافة وتحديث بدون تكرار وتوزيع على الفريق.
+-- 3.13: التنبيهات داخل الموقع (جدول notifications + دالة send_notification + محفّزات تلقائية). غير النشطين: واجهة فقط.
+-- 3.12: لا تغيير في قاعدة البيانات (لوحة عضو الفريق في الواجهة فقط).
 -- 3.11: رقم العضوية يكتبه العضو في نموذج التسجيل الذاتي (إلزامي للطلبات الجديدة)؛ لا تغيير آخر في الجداول.
 -- 3.10: صفحة عامة «تقييمي»: العضو يدخل رقم العضوية ورقم البطاقة فيرى درجات تقييماته فقط (دالة my_evaluations).
 -- 3.2: الجنس، المحافظة التابع لها بالاتحاد، طالب/خريج، المرحلة التعليمية، اسم المدرسة/الجامعة.
@@ -899,6 +902,265 @@ end;
 $$;
 revoke all on function public.my_evaluations(text, text) from public;
 grant execute on function public.my_evaluations(text, text) to anon, authenticated;
+
+-- =====================================================================
+-- 12) [جديد 3.13] التنبيهات داخل الموقع (جرس في الأعلى)
+--     • كل مستخدم يقرأ تنبيهاته هو فقط ويعلّمها «مقروءة» أو يحذفها. لا أحد يُدرج مباشرةً في الجدول.
+--     • الإدراج عبر: دالة send_notification (للمسؤول فقط: للجميع أو لشخص بعينه)،
+--       ومحفّزات تلقائية: طلب تسجيل جديد (للجميع)، إسناد مهمة / إعادة فتحها (للمكلَّف)، تسليم مهمة (للمسؤولين).
+-- =====================================================================
+create table if not exists public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  kind       text not null default 'info' check (kind in ('info','task','request')),
+  title      text not null check (char_length(title) between 1 and 120),
+  body       text check (body is null or char_length(body) <= 600),
+  link       text check (link is null or link in ('dashboard','registrations','employees','tasks','engagement','performance')),
+  n          int  not null default 1,
+  created_by uuid references auth.users(id) on delete set null default auth.uid(),
+  read_at    timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own" on public.notifications
+  for select to authenticated using (user_id = auth.uid());
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own" on public.notifications
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "notifications_delete_own" on public.notifications;
+create policy "notifications_delete_own" on public.notifications
+  for delete to authenticated using (user_id = auth.uid());
+
+revoke all on public.notifications from anon, authenticated;
+grant select on public.notifications to authenticated;
+grant update (read_at) on public.notifications to authenticated;    -- لا يمكن تعديل نص التنبيه، فقط تعليمه مقروءاً
+grant delete on public.notifications to authenticated;
+
+-- إرسال تنبيه يدوي (مسؤول فقط). p_to = null يعني: كل أعضاء الفريق عدا المرسِل. يرجع عدد المستلمين.
+create or replace function public.send_notification(p_to uuid, p_title text, p_body text default null, p_link text default null)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+  p_title := trim(coalesce(p_title, '')); p_body := nullif(trim(coalesce(p_body, '')), ''); p_link := nullif(trim(coalesce(p_link, '')), '');
+  if p_title = '' or char_length(p_title) > 120 then raise exception 'عنوان التنبيه مطلوب (حتى 120 حرفاً)'; end if;
+  if p_body is not null and char_length(p_body) > 600 then raise exception 'نص التنبيه طويل (الحد 600 حرف)'; end if;
+  if p_to is not null and not exists (select 1 from public.profiles where id = p_to) then raise exception 'المستلم غير موجود'; end if;
+  delete from public.notifications where created_at < now() - interval '90 days';
+  insert into public.notifications (user_id, kind, title, body, link)
+  select id, 'info', p_title, p_body, p_link from public.profiles
+   where (p_to is null and id <> auth.uid()) or id = p_to;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+revoke all on function public.send_notification(uuid, text, text, text) from public, anon;
+grant execute on function public.send_notification(uuid, text, text, text) to authenticated;
+
+-- طلب تسجيل جديد → تنبيه لكل الفريق (تنبيه واحد غير مقروء يتجمّع: «N طلبات جديدة»)
+create or replace function public.notify_new_registration()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.notifications where created_at < now() - interval '90 days';
+  update public.notifications set n = n + 1, body = new.full_name, created_at = now()
+   where kind = 'request' and link = 'registrations' and read_at is null;
+  insert into public.notifications (user_id, kind, title, body, link, created_by)
+  select p.id, 'request', 'طلب تسجيل جديد', new.full_name, 'registrations', null
+    from public.profiles p
+   where not exists (select 1 from public.notifications x
+                      where x.user_id = p.id and x.kind = 'request' and x.link = 'registrations' and x.read_at is null);
+  return null;
+end;
+$$;
+drop trigger if exists registrations_notify on public.registrations;
+create trigger registrations_notify
+  after insert on public.registrations
+  for each row execute function public.notify_new_registration();
+
+-- المهام: إسناد جديد أو تغيير المكلَّف أو إعادة فتح → للمكلَّف. التسليم → للمسؤولين.
+create or replace function public.notify_task()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.assigned_to is distinct from auth.uid() then
+      insert into public.notifications (user_id, kind, title, body, link)
+      values (new.assigned_to, 'task', 'مهمة جديدة لك', new.title, 'tasks');
+    end if;
+  else
+    if new.assigned_to is distinct from old.assigned_to then
+      if new.assigned_to is distinct from auth.uid() then
+        insert into public.notifications (user_id, kind, title, body, link)
+        values (new.assigned_to, 'task', 'مهمة جديدة لك', new.title, 'tasks');
+      end if;
+    elsif old.status = 'delivered' and new.status = 'pending' then
+      if new.assigned_to is distinct from auth.uid() then
+        insert into public.notifications (user_id, kind, title, body, link)
+        values (new.assigned_to, 'task', 'أُعيد فتح مهمة', new.title, 'tasks');
+      end if;
+    elsif old.status = 'pending' and new.status = 'delivered' then
+      insert into public.notifications (user_id, kind, title, body, link)
+      select p.id, 'task', 'سُلّمت مهمة', new.title || ' — ' || coalesce((select full_name from public.profiles where id = new.assigned_to), ''), 'tasks'
+        from public.profiles p where p.role = 'admin' and p.id is distinct from auth.uid();
+    end if;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists tasks_notify on public.tasks;
+create trigger tasks_notify
+  after insert or update on public.tasks
+  for each row execute function public.notify_task();
+
+-- =====================================================================
+-- 13) [جديد 3.14] استيراد الأعضاء من Excel: إضافة الجدد وتحديث الموجودين بدون تكرار
+--     • المطابقة برقم البطاقة أولاً ثم رقم العضوية. الخلية الفارغة لا تمسح بيانات موجودة.
+--     • عضو الفريق يضيف ويحدّث أعضاءه هو فقط. المسؤول يوزّع الأعضاء على أي عضو في الفريق.
+--     • p_dry = true: معاينة بنفس المنطق تماماً (يُنفَّذ كل صف ثم يُتراجع عنه) بلا أي تغيير فعلي.
+--     • لا صور ولا هويات: الملف بيانات نصية فقط (تُرفع الصور من نموذج العضو).
+-- =====================================================================
+create or replace function public.import_members(
+  p_rows jsonb, p_owner uuid default null, p_mode text default 'upsert',
+  p_reassign boolean default false, p_dry boolean default false)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  adm boolean;
+  res jsonb := '[]'::jsonb;
+  cnt jsonb := '{}'::jsonb;
+  r jsonb; k record;
+  idx int; o uuid; nid text; mno text;
+  e_n public.employees; e_m public.employees; e public.employees;
+  f_n boolean; f_m boolean;
+  act text; msg text; eid uuid; cname text; moved boolean;
+begin
+  if uid is null or not exists (select 1 from public.profiles where id = uid) then
+    raise exception 'ليست لديك صلاحية لهذه العملية';
+  end if;
+  adm := public.is_admin();
+  if p_mode not in ('upsert', 'new_only', 'update_only') then raise exception 'وضع الاستيراد غير معروف'; end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then raise exception 'بيانات غير صالحة'; end if;
+  if jsonb_array_length(p_rows) > 300 then raise exception 'الحد الأقصى 300 صف في الدفعة الواحدة'; end if;
+  if p_owner is not null and p_owner <> uid then
+    if not adm then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+    if not exists (select 1 from public.profiles where id = p_owner) then raise exception 'المسؤول المختار غير موجود'; end if;
+  end if;
+
+  for r in select value from jsonb_array_elements(p_rows) loop
+    idx := coalesce((r->>'i')::int, 0); act := null; msg := null; eid := null; moved := false;
+    begin
+      nid := nullif(trim(coalesce(r->>'national_id', '')), '');
+      mno := nullif(trim(coalesce(r->>'membership_no', '')), '');
+      o := coalesce(p_owner, uid);
+      if adm and nullif(r->>'owner', '') is not null then
+        o := (r->>'owner')::uuid;
+        if not exists (select 1 from public.profiles where id = o) then raise exception 'المسؤول المحدّد للصف غير موجود'; end if;
+      end if;
+
+      f_n := false; f_m := false;
+      if nid is not null then select * into e_n from public.employees where national_id = nid; f_n := found; end if;
+      if mno is not null then select * into e_m from public.employees where membership_no = mno; f_m := found; end if;
+
+      if f_n and f_m and e_n.id <> e_m.id then
+        act := 'error'; msg := 'رقم البطاقة ورقم العضوية يخصّان عضوين مختلفين في السجل';
+      elsif f_n or f_m then
+        e := case when f_n then e_n else e_m end;
+        if p_mode = 'new_only' then
+          act := 'skip'; msg := 'موجود مسبقاً (تم التخطّي)';
+        elsif not adm and e.created_by <> uid then
+          act := 'denied'; msg := 'مسجَّل لدى مسؤول آخر ولا يمكنك تحديثه';
+        else
+          update public.employees set
+            membership_no     = coalesce(mno, membership_no),
+            national_id       = coalesce(nid, national_id),
+            full_name         = coalesce(nullif(trim(r->>'full_name'), ''), full_name),
+            phone             = coalesce(nullif(trim(r->>'phone'), ''), phone),
+            email             = coalesce(nullif(lower(trim(r->>'email')), ''), email),
+            birth_date        = coalesce(nullif(trim(r->>'birth_date'), '')::date, birth_date),
+            gender            = coalesce(nullif(trim(r->>'gender'), ''), gender),
+            governorate       = coalesce(nullif(trim(r->>'governorate'), ''), governorate),
+            union_governorate = coalesce(nullif(trim(r->>'union_governorate'), ''), union_governorate),
+            address           = coalesce(nullif(trim(r->>'address'), ''), address),
+            capacity          = coalesce(nullif(trim(r->>'capacity'), ''), capacity),
+            committee         = coalesce(nullif(trim(r->>'committee'), ''), committee),
+            study_status      = coalesce(nullif(trim(r->>'study_status'), ''), study_status),
+            edu_stage         = coalesce(nullif(trim(r->>'edu_stage'), ''), edu_stage),
+            institution       = coalesce(nullif(trim(r->>'institution'), ''), institution),
+            status            = coalesce(nullif(trim(r->>'status'), ''), status),
+            created_by        = case when adm and p_reassign then o else created_by end
+          where id = e.id;
+          act := 'update'; eid := e.id; moved := adm and p_reassign and e.created_by <> o;
+        end if;
+      else
+        if p_mode = 'update_only' then
+          act := 'skip'; msg := 'غير موجود في السجل (تم التخطّي)';
+        elsif nid is null or mno is null or nullif(trim(coalesce(r->>'full_name', '')), '') is null then
+          act := 'error'; msg := 'الاسم ورقم البطاقة ورقم العضوية مطلوبة للعضو الجديد';
+        else
+          insert into public.employees
+            (membership_no, national_id, full_name, phone, email, birth_date, gender, governorate, union_governorate,
+             address, capacity, committee, study_status, edu_stage, institution, status, created_by)
+          values
+            (mno, nid, trim(r->>'full_name'), nullif(trim(r->>'phone'), ''), nullif(lower(trim(r->>'email')), ''),
+             nullif(trim(r->>'birth_date'), '')::date, nullif(trim(r->>'gender'), ''), nullif(trim(r->>'governorate'), ''),
+             nullif(trim(r->>'union_governorate'), ''), nullif(trim(r->>'address'), ''), nullif(trim(r->>'capacity'), ''),
+             nullif(trim(r->>'committee'), ''), nullif(trim(r->>'study_status'), ''), nullif(trim(r->>'edu_stage'), ''),
+             nullif(trim(r->>'institution'), ''), coalesce(nullif(trim(r->>'status'), ''), 'active'), o)
+          returning id into eid;
+          act := 'insert'; moved := true;
+        end if;
+      end if;
+
+      if p_dry and act in ('insert', 'update') then raise exception '__dry__'; end if;
+      if moved and o <> uid then cnt := jsonb_set(cnt, array[o::text], to_jsonb(coalesce((cnt->>o::text)::int, 0) + 1)); end if;
+    exception when others then
+      if sqlerrm = '__dry__' then
+        null;                                    -- معاينة: المتغيرات تبقى والتغيير في القاعدة يُتراجع عنه
+      else
+        get stacked diagnostics cname = constraint_name;
+        act := 'error'; eid := null;
+        msg := case
+          when sqlstate = '23505' then 'رقم البطاقة أو رقم العضوية مستخدم لعضو آخر'
+          when cname = 'employees_cap_unit_chk' then 'الصفة لا تتوافق مع اللجنة (المنسق ونائبه يختاران محافظة، وغيرهما لجنة)'
+          when sqlstate = '23514' then 'قيمة غير مسموحة في أحد الحقول (' || coalesce(cname, '') || ')'
+          when sqlstate in ('22P02', '22007', '22008') then 'صيغة تاريخ أو قيمة غير صالحة'
+          else sqlerrm end;
+      end if;
+    end;
+    res := res || jsonb_build_object('i', idx, 'a', act, 'm', msg, 'id', eid);
+  end loop;
+
+  -- إشعار كل مسؤول أُسندت إليه سجلات جديدة (غير المرسِل)
+  if not p_dry then
+    for k in select key, value from jsonb_each_text(cnt) loop
+      insert into public.notifications (user_id, kind, title, body, link)
+      values (k.key::uuid, 'info', 'أعضاء أُسندوا إليك', 'أُسند إليك ' || k.value || ' ' || case when k.value::int = 1 then 'عضو' else 'أعضاء' end || ' من ملف Excel', 'employees');
+    end loop;
+  end if;
+  return res;
+end;
+$$;
+revoke all on function public.import_members(jsonb, uuid, text, boolean, boolean) from public, anon;
+grant execute on function public.import_members(jsonb, uuid, text, boolean, boolean) to authenticated;
 
 -- =====================================================================
 -- إعلام Supabase بتحديث ذاكرة الجداول فوراً (يمنع خطأ: Could not find the column ... in the schema cache)
