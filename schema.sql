@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.14 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.15 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -9,6 +9,7 @@
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
+-- 3.15: إسناد/نقل أعضاء موجودين إلى مسؤول بيانات (دالة assign_members).
 -- 3.14: استيراد الأعضاء من Excel (دالة import_members): إضافة وتحديث بدون تكرار وتوزيع على الفريق.
 -- 3.13: التنبيهات داخل الموقع (جدول notifications + دالة send_notification + محفّزات تلقائية). غير النشطين: واجهة فقط.
 -- 3.12: لا تغيير في قاعدة البيانات (لوحة عضو الفريق في الواجهة فقط).
@@ -1161,6 +1162,34 @@ end;
 $$;
 revoke all on function public.import_members(jsonb, uuid, text, boolean, boolean) from public, anon;
 grant execute on function public.import_members(jsonb, uuid, text, boolean, boolean) to authenticated;
+
+-- =====================================================================
+-- 14) [جديد 3.15] إسناد/نقل أعضاء موجودين إلى مسؤول بيانات (للمسؤول فقط)
+--     يغيّر «المسؤول عن بيانات العضو» (created_by) لمجموعة أعضاء، ويُنبّه المستلم بعدد من أُسند إليه.
+-- =====================================================================
+create or replace function public.assign_members(p_ids uuid[], p_owner uuid)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'ليست لديك صلاحية لهذه العملية'; end if;
+  if p_ids is null or coalesce(array_length(p_ids, 1), 0) = 0 then return 0; end if;
+  if array_length(p_ids, 1) > 1000 then raise exception 'الحد الأقصى 1000 عضو في المرة الواحدة'; end if;
+  if p_owner is null or not exists (select 1 from public.profiles where id = p_owner) then raise exception 'المسؤول المختار غير موجود'; end if;
+  update public.employees set created_by = p_owner where id = any (p_ids) and created_by is distinct from p_owner;
+  get diagnostics n = row_count;
+  if n > 0 and p_owner <> auth.uid() then
+    insert into public.notifications (user_id, kind, title, body, link)
+    values (p_owner, 'info', 'أعضاء أُسندوا إليك', 'أُسند إليك ' || n || ' ' || case when n = 1 then 'عضو' else 'أعضاء' end, 'employees');
+  end if;
+  return n;
+end;
+$$;
+revoke all on function public.assign_members(uuid[], uuid) from public, anon;
+grant execute on function public.assign_members(uuid[], uuid) to authenticated;
 
 -- =====================================================================
 -- إعلام Supabase بتحديث ذاكرة الجداول فوراً (يمنع خطأ: Could not find the column ... in the schema cache)

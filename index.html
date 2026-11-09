@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.14
+   نظام التصميم — الإصدار 3.15
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -518,6 +518,7 @@ th.c,td.c{text-align:center}
 .bulk{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;background:var(--pri-soft);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4;color:var(--pri)}
 .bulk[hidden]{display:none}
 .bulk .grow{flex:1}
+.bulk select{width:auto;flex:0 1 240px;min-width:170px}
 th.chk,td.chk{width:44px;padding-inline-end:0;text-align:center}
 input.cb{width:18px;height:18px;accent-color:var(--pri);cursor:pointer;margin:0}
 .tbl tr.sel td{background:var(--pri-soft)}
@@ -580,7 +581,7 @@ const FILTERS = [
   { k: 'std', f: 'study_status',      all: 'طالب / خريج',            list: STUDY,       note: 'الحالة الدراسية' },
   { k: 'edu', f: 'edu_stage',         all: 'المرحلة التعليمية',      list: EDU_STAGES,  note: 'المرحلة التعليمية' }
 ];
-const newF = () => ({ q: '', st: 'active', limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, ''])) });
+const newF = () => ({ q: '', st: 'active', own: '', limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, ''])) });
 
 /* ================= أدوات عامة ================= */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1455,7 +1456,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.14</div>
+      <div class="side-foot muted">الإصدار 3.15</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1959,7 +1960,7 @@ function importModal(){
       busy(`جارٍ فحص الصفوف ومطابقتها مع السجل… ${Math.min(i + 200, todo.length)} من ${todo.length}`, 20 + Math.round((i / todo.length) * 75));
       const chunk = todo.slice(i, i + 200);
       const { data, error } = await sb.rpc('import_members', { p_rows: chunk.map(r => ({ i: r.n, ...r.f })), p_owner: adm ? (S.owner === 'file' ? me.id : S.owner) : null, p_mode: S.mode, p_reassign: false, p_dry: true });
-      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.14) في Supabase ثم أعد المحاولة.' : error.message);
+      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.15) في Supabase ثم أعد المحاولة.' : error.message);
       const by = new Map(data.map(x => [x.i, x]));
       chunk.forEach(r => { const x = by.get(r.n) || { a: 'error', m: 'لم يرد رد من الخادم' }; r.act = x.a; r.msg = x.m || ''; });
     }
@@ -2109,21 +2110,23 @@ function filteredEmps(skipSt){
   return empCache.filter(r => {
     if (!skipSt && empF.st !== 'all' && r.status !== empF.st) return false;
     for (const x of FILTERS) if (empF[x.k] && r[x.f] !== empF[x.k]) return false;
+    if (empF.own && r.created_by !== empF.own) return false;
     if (!toks.length) return true;
     const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id, r.email].join(' '));
     return toks.every(t => hay.includes(t));
   });
 }
-const anyFilter = () => !!(empF.q.trim() || empF.st !== 'active' || FILTERS.some(x => empF[x.k]));
+const anyFilter = () => !!(empF.q.trim() || empF.st !== 'active' || empF.own || FILTERS.some(x => empF[x.k]));
 function filterNote(){
   const p = [];
   if (empF.st !== 'all') p.push('الحالة: ' + (empF.st === 'active' ? 'نشط' : 'غير نشط'));
   FILTERS.forEach(x => { if (empF[x.k]) p.push(x.note + ': ' + empF[x.k]); });
+  if (empF.own) p.push('المسؤول: ' + nameOf(empF.own));
   if (empF.q.trim()) p.push('بحث: ' + empF.q.trim());
   return p.join('   ·   ');
 }
 async function viewEmployees(tok){
-  empF = newF();
+  empF = newF(); empSel.clear();
   const fopts = list => list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
   paint(tok, `
   ${pageHead('سجّل بيانات الأعضاء وصورهم، ثم ابحث وصفِّ وصدّر ما تحتاجه.', `<button class="btn sec" id="impE" title="إضافة أعضاء أو تحديثهم من ملف Excel">${ic('upload')} استيراد Excel</button><button class="btn sec" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button><button class="btn" id="addE">${ic('plus')} إضافة عضو</button>`)}
@@ -2136,9 +2139,10 @@ async function viewEmployees(tok){
     </div>
     <div class="filters" id="flt">
       ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="تصفية حسب ${esc(x.note)}"><option value="">${esc(x.all)}</option>${fopts(x.list)}</select>`).join('')}
+      ${isAdmin() ? `<select data-f="own" aria-label="تصفية حسب المسؤول عن البيانات"><option value="">كل المسؤولين عن البيانات</option>${team.map(t => `<option value="${t.id}">${esc(t.full_name || t.email)}</option>`).join('')}</select>` : ''}
     </div>
   </div>
-  <div class="card flush" data-nr><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
+  <div class="card flush" data-nr><div class="bulk" id="ebulk" hidden></div><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
   $('#q').oninput = e => { empF.q = e.target.value; empF.limit = 60; renderEmployees(); };
   $('#stc').onclick = e => { const b = e.target.closest('button'); if (!b) return; empF.st = b.dataset.v; empF.limit = 60; $$('#stc button').forEach(x => x.classList.toggle('on', x === b)); renderEmployees(); };
   $('#flt').addEventListener('change', e => {
@@ -2156,11 +2160,50 @@ async function viewEmployees(tok){
   $('#impE').onclick = importModal;
   $('#expE').onclick = e => exportXlsx(`members_${today()}.xlsx`, [empSheet(filteredEmps(), filterNote())], e.currentTarget);
   $('#list').addEventListener('click', onEmpClick);
+  $('#list').addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'empAll'){ filteredEmps().forEach(r => t.checked ? empSel.add(r.id) : empSel.delete(r.id)); renderEmployees(); }
+    else if (t.dataset && t.dataset.sel){ t.checked ? empSel.add(t.dataset.sel) : empSel.delete(t.dataset.sel); const tr = t.closest('tr'); if (tr) tr.classList.toggle('sel', t.checked); drawEmpBulk(); syncEmpAll(); }
+  });
+  $('#ebulk').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) empBulk(b); });
   await loadEmployees();
 }
 async function loadEmployees(){
   empCache = await db(sb.from('employees').select('*').order('created_at', { ascending: false }));
   renderEmployees();
+}
+const empSel = new Set();
+function drawEmpBulk(){
+  const bar = $('#ebulk'); if (!bar) return;
+  const n = empSel.size; bar.hidden = !n; if (!n) return;
+  bar.innerHTML = `<b>${n}</b> <span>عضو محدد</span><span class="grow"></span>
+    <select id="ebTo" aria-label="إسناد المحدد إلى">${team.map(t => `<option value="${t.id}">${esc(t.full_name || t.email)}${t.id === me.id ? ' (أنا)' : ''}</option>`).join('')}</select>
+    <button type="button" class="btn sm" data-b="assign">${ic('users', 15)} إسناد المحدد</button>
+    <button type="button" class="btn sec sm" data-b="spread" title="توزيع المحدد بالتساوي على أعضاء الفريق">توزيع بالتساوي</button>
+    <button type="button" class="btn ghost sm" data-b="clear">إلغاء التحديد</button>`;
+}
+function syncEmpAll(){
+  const all = $('#empAll'); if (!all) return;
+  const rows = filteredEmps(), k = rows.filter(r => empSel.has(r.id)).length;
+  all.checked = rows.length > 0 && k === rows.length; all.indeterminate = k > 0 && k < rows.length;
+}
+/* إسناد أعضاء موجودين إلى مسؤول بيانات (للمسؤول فقط): دالة assign_members تتحقق من الصلاحية وتُنبّه المستلم */
+async function empBulk(btn){
+  const ids = [...empSel].filter(id => empCache.some(r => r.id === id));
+  if (btn.dataset.b === 'clear'){ empSel.clear(); return renderEmployees(); }
+  if (!ids.length || !isAdmin()) return;
+  await run(btn, async () => {
+    const groups = new Map();
+    if (btn.dataset.b === 'assign'){ groups.set($('#ebTo').value, ids); }
+    else {
+      const pool = team.filter(t => t.role !== 'admin'), to = (pool.length ? pool : team).map(t => t.id);
+      ids.forEach((id, i) => { const o = to[i % to.length]; groups.set(o, [...(groups.get(o) || []), id]); });
+    }
+    let moved = 0;
+    for (const [owner, list] of groups){ moved += await db(sb.rpc('assign_members', { p_ids: list, p_owner: owner })) || 0; }
+    empSel.clear(); toast(groups.size === 1 ? `تم إسناد ${moved} ${moved === 1 ? 'عضو' : 'أعضاء'} إلى ${nameOf([...groups.keys()][0])}` : `تم توزيع ${ids.length} عضو على ${groups.size} من الفريق`);
+    await loadEmployees();
+  });
 }
 function renderEmployees(){
   const list = $('#list'); if (!list) return;
@@ -2171,12 +2214,15 @@ function renderEmployees(){
   $$('#flt select').forEach(s => s.classList.toggle('on', !!s.value));
   const rs = $('#fReset'); if (rs) rs.hidden = !anyFilter();
   const c = $('#cnt'); if (c) c.textContent = rows.length + ' من ' + (cnts[empF.st] ?? empCache.length);
+  const vis = new Set(rows.map(r => r.id)); empSel.forEach(id => { if (!vis.has(id)) empSel.delete(id); });
+  drawEmpBulk();
   const inact = empF.st === 'inactive';
   const note = inact ? `<div class="inact-note">${ic('alert', 16)}<span>هؤلاء خارج قائمة الأعضاء، ولا يظهرون في العدّادات واللوحات ولا في اختيار التقييم. زر «إعادة تنشيط» (السهم المنعطف) يعيد العضو إلى قائمة الأعضاء.</span></div>` : '';
   if (!rows.length){ list.innerHTML = note + emptyBox('users', cnts[empF.st] ? 'لا توجد نتائج مطابقة.' : inact ? 'لا يوجد أعضاء غير نشطين.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
   const shown = rows.slice(0, empF.limit);
-  list.innerHTML = note + `<table><thead><tr><th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / المحافظة</th><th class="hide-md">الهاتف / البريد</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
-  ${shown.map((r, i) => `<tr style="--i:${Math.min(i, 12)}">
+  list.innerHTML = note + `<table><thead><tr>${isAdmin() ? '<th class="chk"><input type="checkbox" class="cb" id="empAll" aria-label="تحديد كل الأعضاء في القائمة"></th>' : ''}<th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / المحافظة</th><th class="hide-md">الهاتف / البريد</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
+  ${shown.map((r, i) => `<tr style="--i:${Math.min(i, 12)}"${empSel.has(r.id) ? ' class="sel"' : ''}>
+    ${isAdmin() ? `<td class="chk"><input type="checkbox" class="cb" data-sel="${r.id}" aria-label="تحديد ${esc(r.full_name)}"${empSel.has(r.id) ? ' checked' : ''}></td>` : ''}
     <td><button type="button" class="who" data-a="view" data-id="${r.id}" title="عرض بيانات العضو"><span class="av" data-path="${esc(r.photo_path || '')}">${esc(initials(r.full_name))}</span><div><b>${esc(r.full_name)}</b><div class="muted">${r.membership_no ? 'رقم العضوية: <bdi>' + esc(r.membership_no) + '</bdi>' : '—'}${ageOf(r.birth_date) != null ? ' · ' + ageOf(r.birth_date) + ' سنة' : ''}${incomplete(r) ? ' <span class="tag warn">بيانات ناقصة</span>' : ''}</div></div></button></td>
     <td>${r.capacity ? `<span class="tag info">${esc(r.capacity)}</span>` : '—'}</td>
     <td class="hide-md">${esc(r.committee) || '—'}${r.governorate ? `<div class="muted">${esc(r.governorate)}</div>` : ''}</td><td class="hide-md"><bdi>${esc(r.phone) || '—'}</bdi>${r.email ? `<div class="muted sub-em" title="${esc(r.email)}"><bdi>${esc(r.email)}</bdi></div>` : ''}</td>
@@ -2189,6 +2235,7 @@ function renderEmployees(){
     </div></td></tr>`).join('')}</tbody></table>
   ${shown.length < rows.length ? `<div class="more"><button class="btn sec" data-a="more">عرض المزيد (${rows.length - shown.length})</button></div>` : ''}`;
   hydrateThumbs();
+  syncEmpAll();
 }
 async function onEmpClick(e){
   const b = e.target.closest('button[data-a]'); if (!b) return;
@@ -2313,6 +2360,7 @@ const memberFormHtml = (e, o = {}) => {
       <div class="fld"><label>الصورة الشخصية${pub ? ' (اختيارية)' : ''}${edit && e.photo_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="photo" type="file" accept="image/*"><img class="prev" hidden alt=""></div>
       <div class="fld"><label>صورة الهوية${pub ? ' *' : ''}${edit && e.id_doc_path ? ' (اتركها للإبقاء على الحالية)' : ''}</label><input name="idimg" type="file" accept="image/*"${pub ? ' required' : ''}><img class="prev" hidden alt=""></div>
     </div>
+    ${o.owners ? `<div class="fld"><label>المسؤول عن بيانات العضو</label><select name="owner">${o.owners.map(t => `<option value="${t.id}"${t.id === e.created_by ? ' selected' : ''}>${esc(t.full_name || t.email)}</option>`).join('')}</select><small class="muted">ينتقل العضو إلى قائمة هذا المسؤول، ويصله تنبيه.</small></div>` : ''}
     ${(!edit || !e.consent) ? `<label class="consent"><input type="checkbox" name="consent"${edit ? '' : ' required'}><span>${pub ? 'أقرّ بأنني أوافق على جمع بياناتي وصورتي وصورة هويتي لأغراض الموارد البشرية، وأن البيانات التي أدخلتها صحيحة.' : 'أقرّ بأن العضو وافق كتابياً على جمع بياناته وصورته وصورة هويته لأغراض الموارد البشرية.'}</span></label>` : ''}
     ${pub ? '<div class="m-foot"><button class="btn block">إرسال الطلب</button></div>' : `<div class="m-foot sticky"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">${edit ? 'حفظ التعديلات' : 'حفظ'}</button></div>`}
   </form>`;
@@ -2391,7 +2439,7 @@ const memberErr = (row, needMno) => {
 
 function employeeModal(emp){
   const edit = !!emp, e = emp || {};
-  const m = openModal(edit ? 'تعديل بيانات العضو' : 'إضافة عضو جديد', memberFormHtml(e, { edit }), { wide: true });
+  const m = openModal(edit ? 'تعديل بيانات العضو' : 'إضافة عضو جديد', memberFormHtml(e, { edit, owners: edit && isAdmin() ? team : null }), { wide: true });
   wireMemberForm(m.el);
 
   onSubmit($('#ef', m.el), async f => {
@@ -2412,6 +2460,8 @@ function employeeModal(emp){
       if (/duplicate/i.test(err.message)) throw new Error(/national_id/i.test(err.message) ? 'رقم البطاقة مسجَّل مسبقاً' : 'رقم العضوية مستخدم مسبقاً');
       throw err;
     }
+    const own = f.get('owner');
+    if (edit && isAdmin() && own && own !== e.created_by){ try { await db(sb.rpc('assign_members', { p_ids: [e.id], p_owner: own })); } catch (er){ toast('تم حفظ البيانات، لكن تعذّر تغيير المسؤول: ' + er.message, true); } }
     for (const [bk, p] of old) sb.storage.from(bk).remove([p]); // يحذف القديم إن كان المستخدم مسؤولاً
     m.close(); toast(edit ? 'تم تحديث البيانات' : 'تم الحفظ'); loadEmployees();
   });
