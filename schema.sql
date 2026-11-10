@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.15 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.17 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -9,6 +9,8 @@
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
+-- 3.17: ضغط الصور عند الرفع (≈100KB للشخصية و≈150KB للهوية) وخفض حد الـ bucket إلى 512KB.
+-- 3.16: صفات جديدة (مساعد / مستشار / غير ذلك) مع عمود «الصفة كاملة» capacity_detail، وجهات إضافية للرئيس والنائب (رئيس الاتحاد، وحدة التحول الرقمي، لجنة الحوكمة، المجلس الرقابي، الأمين العام للمكتب الفني ونائبه). حذف الطلبات للمسؤول (الصلاحية موجودة).
 -- 3.15: إسناد/نقل أعضاء موجودين إلى مسؤول بيانات (دالة assign_members).
 -- 3.14: استيراد الأعضاء من Excel (دالة import_members): إضافة وتحديث بدون تكرار وتوزيع على الفريق.
 -- 3.13: التنبيهات داخل الموقع (جدول notifications + دالة send_notification + محفّزات تلقائية). غير النشطين: واجهة فقط.
@@ -185,6 +187,7 @@ alter table public.employees add column if not exists edu_stage     text;   -- [
 alter table public.employees add column if not exists institution   text;   -- [جديد 3.2] اسم المدرسة / الجامعة
 alter table public.employees add column if not exists capacity      text;
 alter table public.employees add column if not exists committee     text;
+alter table public.employees add column if not exists capacity_detail text;   -- [جديد 3.16] الصفة كاملة (لمساعد / مستشار / غير ذلك)
 alter table public.employees add column if not exists department    text;
 alter table public.employees add column if not exists email         text;
 alter table public.employees add column if not exists join_date     date;
@@ -459,7 +462,7 @@ begin
   -- [3.6] تُحذف وتُنشأ من جديد حتى تلتقط القيم الجديدة في القواعد القديمة
   alter table public.employees drop constraint if exists employees_capacity_chk;
   alter table public.employees add constraint employees_capacity_chk
-    check (capacity is null or capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل')) not valid;
+    check (capacity is null or capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل','مساعد','مستشار','غير ذلك')) not valid;
   -- اللجنة / جهة التمثيل
   -- (للمنسق ونائب المنسق تُخزَّن المحافظة هنا بصيغة «محافظة القاهرة»)
   alter table public.employees drop constraint if exists employees_committee_chk;
@@ -475,6 +478,13 @@ begin
       'لجنة التخطيط والمتابعة',
       'ممثل مكتب المشروعات',
       'ممثل المكتب الفني',
+      'رئيس الاتحاد',
+      'نائب رئيس الاتحاد',
+      'وحدة التحول الرقمي',
+      'لجنة الحوكمة',
+      'المجلس الرقابي',
+      'الأمين العام للمكتب الفني',
+      'نائب الأمين العام للمكتب الفني',
       'محافظة القاهرة',
       'محافظة الجيزة',
       'محافظة الإسكندرية',
@@ -508,6 +518,15 @@ begin
   alter table public.employees add constraint employees_cap_unit_chk
     check (capacity is null or committee is null
            or ((capacity in ('منسق','نائب منسق')) = (committee like 'محافظة %'))) not valid;
+  -- [3.16] الجهات الإضافية (رئيس الاتحاد، المجلس الرقابي…) للرئيس والنائب فقط
+  alter table public.employees drop constraint if exists employees_lead_unit_chk;
+  alter table public.employees add constraint employees_lead_unit_chk
+    check (capacity is null or committee is null or committee not in ('رئيس الاتحاد','نائب رئيس الاتحاد','وحدة التحول الرقمي','لجنة الحوكمة','المجلس الرقابي','الأمين العام للمكتب الفني','نائب الأمين العام للمكتب الفني') or capacity in ('رئيس','نائب')) not valid;
+  -- [3.16] الصفة كاملة: مطلوبة (حتى 100 حرف) لمساعد / مستشار / غير ذلك، ومحظورة لغيرها
+  alter table public.employees drop constraint if exists employees_cap_detail_chk;
+  alter table public.employees add constraint employees_cap_detail_chk
+    check ((capacity in ('مساعد','مستشار','غير ذلك') and char_length(btrim(coalesce(capacity_detail, ''))) between 1 and 100)
+           or ((capacity is null or capacity not in ('مساعد','مستشار','غير ذلك')) and capacity_detail is null)) not valid;
   -- المحافظة (27 محافظة)
   if not exists (select 1 from pg_constraint where conname = 'employees_governorate_chk') then
     alter table public.employees add constraint employees_governorate_chk
@@ -578,12 +597,12 @@ create index if not exists access_log_at_idx        on public.access_log (at des
 create index if not exists access_log_employee_idx  on public.access_log (employee_id);
 
 -- ---------------------------------------------------------------------
--- 9) تخزين الصور: buckets خاصة (غير عامة) بحد 2MB وصيغ صور فقط
+-- 9) تخزين الصور: buckets خاصة (غير عامة) بحد 512KB وصيغ صور فقط (الواجهة تضغط الصورة الشخصية إلى ≈100KB والهوية إلى ≈150KB)
 -- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('photos', 'photos', false, 2097152, array['image/jpeg','image/png','image/webp']),
-  ('ids',    'ids',    false, 2097152, array['image/jpeg','image/png','image/webp'])
+  ('photos', 'photos', false, 524288, array['image/jpeg','image/png','image/webp']),
+  ('ids',    'ids',    false, 524288, array['image/jpeg','image/png','image/webp'])
 on conflict (id) do update
   set public = false,
       file_size_limit = excluded.file_size_limit,
@@ -652,6 +671,8 @@ create table if not exists public.registrations (
   created_at        timestamptz not null default now()
 );
 
+alter table public.registrations add column if not exists capacity_detail text;   -- [جديد 3.16]
+
 do $$
 begin
   alter table public.registrations drop constraint if exists registrations_values_chk;
@@ -664,9 +685,11 @@ begin
     and governorate in ('القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية', 'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس', 'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح')
     and union_governorate in ('القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية', 'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس', 'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح')
     and char_length(address) between 1 and 300
-    and capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل')
-    and committee in ('لجنة المكتب الإعلامي', 'لجنة الموارد البشرية', 'لجنة التنظيم والمراسم', 'لجنة التدريب والتطوير', 'لجنة العلاقات العامة والدولية', 'لجنة الاستدامة والتحول الأخضر', 'لجنة السياحة والثقافة', 'لجنة التخطيط والمتابعة', 'ممثل مكتب المشروعات', 'ممثل المكتب الفني', 'محافظة القاهرة', 'محافظة الجيزة', 'محافظة الإسكندرية', 'محافظة القليوبية', 'محافظة الشرقية', 'محافظة الدقهلية', 'محافظة الغربية', 'محافظة المنوفية', 'محافظة البحيرة', 'محافظة كفر الشيخ', 'محافظة دمياط', 'محافظة بورسعيد', 'محافظة الإسماعيلية', 'محافظة السويس', 'محافظة شمال سيناء', 'محافظة جنوب سيناء', 'محافظة الفيوم', 'محافظة بني سويف', 'محافظة المنيا', 'محافظة أسيوط', 'محافظة سوهاج', 'محافظة قنا', 'محافظة الأقصر', 'محافظة أسوان', 'محافظة البحر الأحمر', 'محافظة الوادي الجديد', 'محافظة مطروح')
+    and capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل','مساعد','مستشار','غير ذلك')
+    and committee in ('لجنة المكتب الإعلامي', 'لجنة الموارد البشرية', 'لجنة التنظيم والمراسم', 'لجنة التدريب والتطوير', 'لجنة العلاقات العامة والدولية', 'لجنة الاستدامة والتحول الأخضر', 'لجنة السياحة والثقافة', 'لجنة التخطيط والمتابعة', 'ممثل مكتب المشروعات', 'ممثل المكتب الفني', 'رئيس الاتحاد', 'نائب رئيس الاتحاد', 'وحدة التحول الرقمي', 'لجنة الحوكمة', 'المجلس الرقابي', 'الأمين العام للمكتب الفني', 'نائب الأمين العام للمكتب الفني', 'محافظة القاهرة', 'محافظة الجيزة', 'محافظة الإسكندرية', 'محافظة القليوبية', 'محافظة الشرقية', 'محافظة الدقهلية', 'محافظة الغربية', 'محافظة المنوفية', 'محافظة البحيرة', 'محافظة كفر الشيخ', 'محافظة دمياط', 'محافظة بورسعيد', 'محافظة الإسماعيلية', 'محافظة السويس', 'محافظة شمال سيناء', 'محافظة جنوب سيناء', 'محافظة الفيوم', 'محافظة بني سويف', 'محافظة المنيا', 'محافظة أسيوط', 'محافظة سوهاج', 'محافظة قنا', 'محافظة الأقصر', 'محافظة أسوان', 'محافظة البحر الأحمر', 'محافظة الوادي الجديد', 'محافظة مطروح')
     and ((capacity in ('منسق','نائب منسق')) = (committee like 'محافظة %'))
+    and (committee not in ('رئيس الاتحاد','نائب رئيس الاتحاد','وحدة التحول الرقمي','لجنة الحوكمة','المجلس الرقابي','الأمين العام للمكتب الفني','نائب الأمين العام للمكتب الفني') or capacity in ('رئيس','نائب'))
+    and ((capacity in ('مساعد','مستشار','غير ذلك') and char_length(btrim(coalesce(capacity_detail, ''))) between 1 and 100) or (capacity not in ('مساعد','مستشار','غير ذلك') and capacity_detail is null))
     and study_status in ('طالب','خريج')
     and edu_stage in ('إعدادي','ثانوي','دبلوم / معهد','جامعي','دراسات عليا','دكتوراه')
     and char_length(institution) between 1 and 150
@@ -695,6 +718,7 @@ begin
   new.submit_ip := ip;
   new.email := lower(trim(new.email));
   new.full_name := regexp_replace(trim(new.full_name), '\s+', ' ', 'g');
+  new.capacity_detail := nullif(regexp_replace(trim(coalesce(new.capacity_detail, '')), '\s+', ' ', 'g'), '');
   new.membership_no := nullif(trim(coalesce(new.membership_no, '')), '');
   if new.membership_no is null then raise exception 'رقم العضوية مطلوب'; end if;   -- [3.11] يكتبه العضو بنفسه
 
@@ -745,7 +769,7 @@ revoke all on public.registrations from anon, authenticated;
 grant insert on public.registrations to anon;
 -- القراءة بأعمدة محددة: عمود submit_ip (عنوان IP) لا يقرؤه أحد، يستخدمه الحد الأقصى للمعدل فقط
 grant select (id, membership_no, full_name, phone, email, national_id, birth_date, gender, governorate, union_governorate,
-              address, capacity, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent,
+              address, capacity, capacity_detail, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent,
               status, reviewed_by, reviewed_at, review_note, employee_id, created_at)
   on public.registrations to authenticated;
 grant insert, update, delete on public.registrations to authenticated;
@@ -794,10 +818,10 @@ begin
 
   insert into public.employees
     (membership_no, full_name, phone, email, national_id, birth_date, gender, governorate, union_governorate,
-     address, capacity, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent, status, created_by)
+     address, capacity, capacity_detail, committee, study_status, edu_stage, institution, photo_path, id_doc_path, consent, status, created_by)
   values
     (mno, r.full_name, r.phone, r.email, r.national_id, r.birth_date, r.gender, r.governorate, r.union_governorate,
-     r.address, r.capacity, r.committee, r.study_status, r.edu_stage, r.institution, r.photo_path, r.id_doc_path, true, 'active', owner_id)
+     r.address, r.capacity, r.capacity_detail, r.committee, r.study_status, r.edu_stage, r.institution, r.photo_path, r.id_doc_path, true, 'active', owner_id)
   returning id into new_id;
 
   update public.registrations
@@ -826,7 +850,7 @@ create policy "hr_files_select_reg" on storage.objects
   );
 
 -- رفع الصور من النموذج العام: إدراج فقط داخل المجلد reg/ وباسم UUID وصيغة jpg (يضغطها المتصفح).
--- لا قراءة ولا تعديل ولا حذف للزائر. الحد 2MB وصيغ الصور مفروضان على الـ bucket نفسه.
+-- لا قراءة ولا تعديل ولا حذف للزائر. الحد 512KB وصيغ الصور مفروضان على الـ bucket نفسه.
 drop policy if exists "hr_files_public_insert" on storage.objects;
 create policy "hr_files_public_insert" on storage.objects
   for insert to anon, authenticated
@@ -1102,6 +1126,12 @@ begin
             union_governorate = coalesce(nullif(trim(r->>'union_governorate'), ''), union_governorate),
             address           = coalesce(nullif(trim(r->>'address'), ''), address),
             capacity          = coalesce(nullif(trim(r->>'capacity'), ''), capacity),
+            capacity_detail   = case
+              when nullif(trim(r->>'capacity'), '') is not null then
+                case when trim(r->>'capacity') in ('مساعد','مستشار','غير ذلك')
+                     then coalesce(nullif(trim(r->>'capacity_detail'), ''), case when capacity = trim(r->>'capacity') then capacity_detail end)
+                     else null end
+              else coalesce(nullif(trim(r->>'capacity_detail'), ''), capacity_detail) end,
             committee         = coalesce(nullif(trim(r->>'committee'), ''), committee),
             study_status      = coalesce(nullif(trim(r->>'study_status'), ''), study_status),
             edu_stage         = coalesce(nullif(trim(r->>'edu_stage'), ''), edu_stage),
@@ -1119,11 +1149,12 @@ begin
         else
           insert into public.employees
             (membership_no, national_id, full_name, phone, email, birth_date, gender, governorate, union_governorate,
-             address, capacity, committee, study_status, edu_stage, institution, status, created_by)
+             address, capacity, capacity_detail, committee, study_status, edu_stage, institution, status, created_by)
           values
             (mno, nid, trim(r->>'full_name'), nullif(trim(r->>'phone'), ''), nullif(lower(trim(r->>'email')), ''),
              nullif(trim(r->>'birth_date'), '')::date, nullif(trim(r->>'gender'), ''), nullif(trim(r->>'governorate'), ''),
              nullif(trim(r->>'union_governorate'), ''), nullif(trim(r->>'address'), ''), nullif(trim(r->>'capacity'), ''),
+             case when trim(r->>'capacity') in ('مساعد','مستشار','غير ذلك') then nullif(trim(r->>'capacity_detail'), '') end,
              nullif(trim(r->>'committee'), ''), nullif(trim(r->>'study_status'), ''), nullif(trim(r->>'edu_stage'), ''),
              nullif(trim(r->>'institution'), ''), coalesce(nullif(trim(r->>'status'), ''), 'active'), o)
           returning id into eid;
@@ -1141,6 +1172,8 @@ begin
         act := 'error'; eid := null;
         msg := case
           when sqlstate = '23505' then 'رقم البطاقة أو رقم العضوية مستخدم لعضو آخر'
+          when cname = 'employees_cap_detail_chk' then 'اكتب «الصفة كاملة» لمساعد / مستشار / غير ذلك (حتى 100 حرف)'
+          when cname = 'employees_lead_unit_chk' then 'هذه الجهة متاحة للرئيس والنائب فقط'
           when cname = 'employees_cap_unit_chk' then 'الصفة لا تتوافق مع اللجنة (المنسق ونائبه يختاران محافظة، وغيرهما لجنة)'
           when sqlstate = '23514' then 'قيمة غير مسموحة في أحد الحقول (' || coalesce(cname, '') || ')'
           when sqlstate in ('22P02', '22007', '22008') then 'صيغة تاريخ أو قيمة غير صالحة'
