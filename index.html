@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.17
+   نظام التصميم — الإصدار 3.18
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -51,6 +51,35 @@ a{color:var(--pri)}
 .muted{color:var(--mut);font-size:13px}
 .capd{max-width:200px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 #rgl td,#rgl th{padding-inline:10px}
+/* مرشّح متعدد الاختيار */
+.ms{position:relative;min-width:0}
+.ms-btn{width:100%;min-height:var(--h-ctl);display:flex;align-items:center;gap:8px;padding:0 12px 0 36px;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238792a6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat left 12px center;color:var(--ink);font:inherit;font-size:14.5px;cursor:pointer;text-align:start;transition:border-color .2s,box-shadow .2s,background-color .2s}
+.ms-btn:hover{border-color:var(--pri)}
+.ms.open .ms-btn{border-color:var(--pri);box-shadow:0 0 0 3px var(--ring)}
+.ms-btn.on{border-color:var(--pri);background-color:var(--pri-soft);color:var(--pri);font-weight:700}
+.ms-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-n{font-style:normal;font-size:12px;font-weight:700;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--pri);color:var(--on-pri);display:inline-grid;place-items:center;flex:none}
+.ms-pop{position:fixed;z-index:70;display:flex;flex-direction:column;max-height:min(380px,62vh);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg)}
+.ms-s{padding:8px;border-bottom:1px solid var(--line)}
+.ms-s input{min-height:36px;font-size:14px}
+.ms-list{overflow:auto;padding:6px;flex:1;overscroll-behavior:contain}
+.ms-o{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1.5}
+.ms-o:hover{background:var(--surface2)}
+.ms-o input{width:18px;min-height:18px;height:18px;padding:0;flex:none;accent-color:var(--pri);cursor:pointer}
+.ms-o span{flex:1;min-width:0}
+.ms-o .ms-c{font-style:normal;font-size:12.5px;color:var(--mut);min-width:18px;text-align:end}
+.ms-o.zero{opacity:.5}
+.ms-none{padding:14px;text-align:center;color:var(--mut);font-size:13.5px}
+.ms-foot{display:flex;justify-content:space-between;gap:8px;padding:8px;border-top:1px solid var(--line)}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fchip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border:1px solid transparent;border-radius:999px;background:var(--pri-soft);color:var(--pri);font:inherit;font-size:13px;font-weight:600;cursor:pointer;max-width:100%}
+.fchip:hover{border-color:var(--pri)}
+.fchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.fchip small{color:var(--mut);font-weight:500}
+.fx{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center}
+.fx .dl input[type=number]{width:84px;min-height:36px;padding:0 8px;text-align:center}
+.tgl{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);cursor:pointer}
+.tgl input{width:18px;min-height:18px;height:18px;accent-color:var(--pri)}
 .c{text-align:center}
 :focus-visible{outline:2px solid var(--pri);outline-offset:2px}
 
@@ -208,7 +237,7 @@ main.view{padding:24px var(--gut) 56px;max-width:var(--max);margin:0 auto}
 .chips button.on{background:var(--surface);color:var(--pri);font-weight:700;box-shadow:0 1px 3px rgba(16,24,40,.1)}
 .chips small{opacity:.75;margin-inline-start:4px}
 /* لوحة البحث والتصفية */
-.fbar{padding:16px 18px;display:grid;gap:14px}
+.fbar{padding:16px 18px;display:grid;gap:14px;position:relative;z-index:5}
 .fbar-top{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .fbar-cnt{margin-inline-start:auto}
 .filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
@@ -591,7 +620,95 @@ const FILTERS = [
   { k: 'std', f: 'study_status',      all: 'طالب / خريج',            list: STUDY,       note: 'الحالة الدراسية' },
   { k: 'edu', f: 'edu_stage',         all: 'المرحلة التعليمية',      list: EDU_STAGES,  note: 'المرحلة التعليمية' }
 ];
-const newF = () => ({ q: '', st: 'active', own: '', limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, ''])) });
+const newF = () => ({ q: '', st: 'active', own: [], amin: '', amax: '', inc: false, limit: 60, ...Object.fromEntries(FILTERS.map(x => [x.k, []])) });
+
+/* ================= [3.18] مرشّحات متعددة الاختيار =================
+   كل مرشّح قائمة منسدلة بمربعات اختيار (مع بحث في القوائم الطويلة وعدّاد لكل خيار)، وتظهر المرشّحات المختارة شرائح قابلة للإزالة. */
+const msItems = list => list.map(x => typeof x === 'string' ? { v: x, l: x } : x);
+const msHtml = d => {
+  const items = msItems(d.items);
+  return `<div class="ms" data-k="${d.k}"><button type="button" class="ms-btn" aria-haspopup="true" aria-expanded="false"><span class="ms-t">${esc(d.all)}</span><i class="ms-n" hidden></i></button>
+    <div class="ms-pop" hidden role="group" aria-label="${esc(d.all)}">
+      ${items.length > 8 ? `<div class="ms-s"><input type="search" class="ms-q" placeholder="بحث…" aria-label="بحث في ${esc(d.all)}" autocomplete="off"></div>` : ''}
+      <div class="ms-list">${items.map(it => `<label class="ms-o"><input type="checkbox" value="${esc(it.v)}"><span>${esc(it.l)}</span><em class="ms-c"></em></label>`).join('')}<div class="ms-none" hidden>لا توجد نتائج</div></div>
+      <div class="ms-foot"><button type="button" class="btn ghost sm" data-ms="all">تحديد الكل</button><button type="button" class="btn ghost sm" data-ms="clear">مسح</button></div>
+    </div></div>`;
+};
+const msCloseAll = () => $$('.ms.open').forEach(el => { el.classList.remove('open'); $('.ms-pop', el).hidden = true; $('.ms-btn', el).setAttribute('aria-expanded', 'false'); });
+let msGlobal = false;
+function msOpen(el){
+  const btn = $('.ms-btn', el), pop = $('.ms-pop', el), r = btn.getBoundingClientRect();
+  pop.hidden = false; el.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+  const w = Math.min(Math.max(r.width, 260), window.innerWidth - 24);
+  pop.style.width = w + 'px';
+  let left = document.dir === 'rtl' || getComputedStyle(document.documentElement).direction === 'rtl' ? r.right - w : r.left;
+  left = Math.max(12, Math.min(left, window.innerWidth - w - 12)); pop.style.left = left + 'px';
+  const sBelow = window.innerHeight - r.bottom - 18, sAbove = r.top - 18;
+  pop.style.maxHeight = '';
+  const useBelow = pop.offsetHeight <= sBelow || sBelow >= sAbove;
+  pop.style.maxHeight = Math.max(150, Math.min(380, useBelow ? sBelow : sAbove)) + 'px';
+  pop.style.top = (useBelow ? r.bottom + 6 : r.top - 6 - pop.offsetHeight) + 'px';
+  const q = $('.ms-q', pop); if (q){ q.value = ''; msFilter(pop, ''); if (window.innerWidth > 700) q.focus(); }
+}
+function msFilter(pop, text){
+  const t = norm(text); let n = 0;
+  $$('.ms-o', pop).forEach(o => { const ok = !t || norm($('span', o).textContent).includes(t); o.hidden = !ok; if (ok) n++; });
+  $('.ms-none', pop).hidden = n > 0;
+}
+/* root: عنصر يحوي المرشّحات · defs: تعريفاتها · get/set: قراءة/كتابة المختار · counts(k): خريطة قيمة→عدد · chipsEl: حاوية الشرائح · onChange: إعادة الرسم */
+function msMount(root, defs, { get, set, counts, chipsEl, onChange }){
+  const D = Object.fromEntries(defs.map(d => [d.k, d]));
+  const refresh = () => {
+    $$('.ms', root).forEach(el => {
+      const d = D[el.dataset.k], sel = get(d.k), items = msItems(d.items), cnt = counts ? counts(d.k) : null;
+      const one = sel.length === 1 ? items.find(i => i.v === sel[0]) : null;
+      $('.ms-t', el).textContent = one ? one.l : d.all;
+      const n = $('.ms-n', el); n.hidden = sel.length < 2; n.textContent = sel.length;
+      $('.ms-btn', el).classList.toggle('on', sel.length > 0);
+      $$('.ms-o', el).forEach(o => {
+        const cb = $('input', o); cb.checked = sel.includes(cb.value);
+        const c = cnt ? (cnt[cb.value] || 0) : null; $('.ms-c', o).textContent = c == null ? '' : c;
+        o.classList.toggle('zero', c === 0 && !cb.checked);
+      });
+    });
+    if (chipsEl){
+      const chips = [];
+      defs.forEach(d => { const items = msItems(d.items); get(d.k).forEach(v => { const it = items.find(i => i.v === v); chips.push(`<button type="button" class="fchip" data-k="${d.k}" data-v="${esc(v)}" title="إزالة هذا المرشّح"><small>${esc(d.note)}:</small><span>${esc(it ? it.l : v)}</span>${ic('x', 13)}</button>`); }); });
+      chipsEl.innerHTML = chips.join(''); chipsEl.hidden = !chips.length;
+    }
+  };
+  const apply = () => { refresh(); onChange(); };
+  root.addEventListener('click', e => {
+    const btn = e.target.closest('.ms-btn');
+    if (btn){ const el = btn.parentElement, was = el.classList.contains('open'); msCloseAll(); if (!was) msOpen(el); return; }
+    const a = e.target.closest('[data-ms]');
+    if (a){
+      const el = a.closest('.ms'), k = el.dataset.k;
+      if (a.dataset.ms === 'clear') set(k, []);
+      else set(k, [...new Set([...get(k), ...$$('.ms-o:not([hidden]) input', el).map(i => i.value)])]);
+      apply();
+    }
+  });
+  root.addEventListener('change', e => {
+    const cb = e.target.closest('.ms-o input'); if (!cb) return;
+    const el = cb.closest('.ms'); set(el.dataset.k, $$('.ms-o input:checked', el).map(i => i.value)); apply();
+  });
+  root.addEventListener('input', e => { const q = e.target.closest('.ms-q'); if (q) msFilter(q.closest('.ms-pop'), q.value); });
+  root.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest('.ms')){ const b = $('.ms-btn', e.target.closest('.ms')); msCloseAll(); b.focus(); } });
+  if (chipsEl) chipsEl.addEventListener('click', e => {
+    const c = e.target.closest('.fchip'); if (!c) return;
+    set(c.dataset.k, get(c.dataset.k).filter(v => v !== c.dataset.v)); apply();
+  });
+  if (!msGlobal){
+    msGlobal = true;
+    document.addEventListener('click', e => { if (!e.target.closest('.ms')) msCloseAll(); });
+    window.addEventListener('resize', msCloseAll);
+    window.addEventListener('scroll', e => { if (!e.target.closest || !e.target.closest('.ms-pop')) msCloseAll(); }, true);
+  }
+  refresh();
+  return refresh;
+}
+const countBy = (rows, f) => { const m = {}; rows.forEach(r => { const v = r[f]; if (v != null && v !== '') m[v] = (m[v] || 0) + 1; }); return m; };
 
 /* ================= أدوات عامة ================= */
 const $  = (s, r = document) => r.querySelector(s);
@@ -682,8 +799,8 @@ function toast(msg, isErr){
 }
 function friendly(e){
   const m = (e && e.message) || String(e);
-  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.17) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
-  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.17) في SQL Editor ثم أعد المحاولة.';
+  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.18) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
+  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.18) في SQL Editor ثم أعد المحاولة.';
   if (/employees_cap_detail_chk/i.test(m)) return 'اكتب «الصفة كاملة» لمساعد / مستشار / غير ذلك';
   if (/employees_lead_unit_chk/i.test(m)) return 'هذه الجهة متاحة للرئيس والنائب فقط';
   if (/registrations_pending_nid/i.test(m)) return 'تم استلام طلب بهذا الرقم من قبل وهو قيد المراجعة';
@@ -1268,12 +1385,13 @@ function setRegBadge(n){
   b.textContent = n > 99 ? '99+' : n;
 }
 const regSel = new Set();
-let regFl = { gov: '', ugov: '', cap: '', com: '', gen: '', std: '', edu: '', from: '', to: '' };
-const regFilt = r => {
+let regFl = { gov: [], ugov: [], cap: [], com: [], gen: [], std: [], edu: [], from: '', to: '' };
+const regFilt = r => regPass(r);
+const regPass = (r, except) => {
   const q = norm($('#rq').value);
   if (regF !== 'all' && r.status !== regF) return false;
   if (q && !norm([r.full_name, r.phone, r.email, r.national_id, r.membership_no].join(' ')).includes(q)) return false;
-  for (const x of FILTERS) if (regFl[x.k] && r[x.f] !== regFl[x.k]) return false;
+  for (const x of FILTERS) if (x.k !== except && regFl[x.k].length && !regFl[x.k].includes(r[x.f])) return false;
   const d = ymd(r.created_at);
   if (regFl.from && d < regFl.from) return false;
   if (regFl.to && d > regFl.to) return false;
@@ -1291,16 +1409,17 @@ async function viewRegistrations(tok){
     <div class="reg-tools"><div class="chips" id="rgc">${[['pending', 'قيد المراجعة'], ['approved', isAdmin() ? 'تمت الموافقة' : 'وافقت عليها'], ...(isAdmin() ? [['rejected', 'مرفوضة']] : []), ['all', 'الكل']].map(([k, l]) => `<button data-v="${k}"${k === regF ? ' class="on"' : ''}>${l} <small>${cnt(k)}</small></button>`).join('')}</div>
       <div class="search">${ic('search')}<input id="rq" type="search" placeholder="ابحث بالاسم أو الهاتف أو البريد أو رقم العضوية" autocomplete="off"></div></div>
     <div class="reg-flt"><div class="filters" id="rflt">
-      ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="${esc(x.all)}"><option value="">${esc(x.all)}</option>${x.list.map(v => `<option${v === regFl[x.k] ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`).join('')}
+      ${FILTERS.map(x => msHtml({ k: x.k, all: x.all, note: x.note, items: x.list })).join('')}
       <label class="dl">من تاريخ <input type="date" data-d="from" dir="ltr" value="${esc(regFl.from)}"></label>
       <label class="dl">إلى تاريخ <input type="date" data-d="to" dir="ltr" value="${esc(regFl.to)}"></label></div>
+      <div class="fchips" id="rchips" hidden></div>
       <div class="reg-flt-foot"><span class="muted" id="rcnt"></span><button type="button" class="btn ghost sm" id="rclr" hidden>${ic('x', 14)} مسح الفلاتر</button></div></div>
     <div class="bulk" id="rbulk" hidden></div>
     <div class="tbl" id="rgl"></div>
   </div>`)) return;
   $('#copyReg').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('تم نسخ الرابط'); } catch (e) { prompt('انسخ الرابط:', link); } };
   const canSel = r => isAdmin() || r.status === 'pending';      // المسؤول يحدّد أي طلب (للحذف)، والعضو يحدّد قيد المراجعة فقط
-  const anyFl = () => Object.values(regFl).some(Boolean) || !!$('#rq').value.trim();
+  const anyFl = () => Object.values(regFl).some(v => Array.isArray(v) ? v.length : v) || !!$('#rq').value.trim();
   const drawBulk = () => {
     const bar = $('#rbulk'), n = regSel.size;
     bar.hidden = !n; if (!n) return;
@@ -1318,7 +1437,7 @@ async function viewRegistrations(tok){
     const rows = regCache.filter(regFilt), pend = rows.filter(r => r.status === 'pending');
     const vis = new Set(rows.filter(canSel).map(r => r.id)); regSel.forEach(id => { if (!vis.has(id)) regSel.delete(id); });
     $$('#rgc button').forEach(b => b.classList.toggle('on', b.dataset.v === regF));
-    $$('#rflt select').forEach(s => s.classList.toggle('on', !!s.value));
+    if (rgRefresh) rgRefresh();
     $('#rcnt').textContent = rows.length + ' طلب' + (pend.length && regF !== 'pending' ? ' · ' + pend.length + ' قيد المراجعة' : '');
     $('#rclr').hidden = !anyFl();
     drawBulk();
@@ -1336,14 +1455,20 @@ async function viewRegistrations(tok){
         ${isAdmin() ? `<button class="btn ghost sm icon" data-a="delete" data-id="${r.id}" title="حذف الطلب" aria-label="حذف الطلب">${ic('trash')}</button>` : ''}</div></td></tr>`; }).join('')}</tbody></table>`;
     syncAll(rows);
   };
+  let rgRefresh = null;
   draw();
+  rgRefresh = msMount($('#rflt'), FILTERS.map(x => ({ k: x.k, all: x.all, note: x.note, items: x.list })), {
+    get: k => regFl[k], set: (k, v) => { regFl[k] = v; },
+    counts: k => countBy(regCache.filter(r => regPass(r, k)), FILTERS.find(x => x.k === k).f),
+    chipsEl: $('#rchips'), onChange: draw
+  });
   $('#rgc').onclick = e => { const b = e.target.closest('button[data-v]'); if (b){ regF = b.dataset.v; draw(); } };
   $('#rq').oninput = draw;
   $('#rflt').onchange = e => {
-    const t = e.target; if (t.dataset.f) regFl[t.dataset.f] = t.value; else if (t.dataset.d) regFl[t.dataset.d] = t.value; else return;
+    const t = e.target; if (t.dataset.d) regFl[t.dataset.d] = t.value; else return;
     draw();
   };
-  $('#rclr').onclick = () => { Object.keys(regFl).forEach(k => regFl[k] = ''); $('#rq').value = ''; $$('#rflt select').forEach(s => s.value = ''); $$('#rflt input').forEach(i => i.value = ''); draw(); };
+  $('#rclr').onclick = () => { Object.keys(regFl).forEach(k => regFl[k] = Array.isArray(regFl[k]) ? [] : ''); $('#rq').value = ''; $$('#rflt input[type=date]').forEach(i => i.value = ''); draw(); };
   $('#rgl').addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'rgAll'){
@@ -1513,7 +1638,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.17</div>
+      <div class="side-foot muted">الإصدار 3.18</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -2021,7 +2146,7 @@ function importModal(){
       busy(`جارٍ فحص الصفوف ومطابقتها مع السجل… ${Math.min(i + 200, todo.length)} من ${todo.length}`, 20 + Math.round((i / todo.length) * 75));
       const chunk = todo.slice(i, i + 200);
       const { data, error } = await sb.rpc('import_members', { p_rows: chunk.map(r => ({ i: r.n, ...r.f })), p_owner: adm ? (S.owner === 'file' ? me.id : S.owner) : null, p_mode: S.mode, p_reassign: false, p_dry: true });
-      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.17) في Supabase ثم أعد المحاولة.' : error.message);
+      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.18) في Supabase ثم أعد المحاولة.' : error.message);
       const by = new Map(data.map(x => [x.i, x]));
       chunk.forEach(r => { const x = by.get(r.n) || { a: 'error', m: 'لم يرد رد من الخادم' }; r.act = x.a; r.msg = x.m || ''; });
     }
@@ -2161,34 +2286,40 @@ function importModal(){
 }
 
 /* ================= بيانات الأعضاء ================= */
-let empCache = [], empF = newF();
+let empCache = [], empF = newF(), empMsRefresh = null;
 const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || (isFree(r.capacity) && !r.capacity_detail) || !r.committee || !r.phone || !r.address || !r.birth_date
   || !r.email || !r.gender || !r.union_governorate || !r.study_status || !r.edu_stage || !r.institution;
 
 /* skipSt = true: تجاهل فلتر الحالة (لحساب عدّادات أزرار الكل/نشط/غير نشط) */
-function filteredEmps(skipSt){
+function filteredEmps(skipSt, except){
   const toks = norm(empF.q).split(' ').filter(Boolean);
+  const amin = empF.amin === '' ? null : +empF.amin, amax = empF.amax === '' ? null : +empF.amax;
   return empCache.filter(r => {
     if (!skipSt && empF.st !== 'all' && r.status !== empF.st) return false;
-    for (const x of FILTERS) if (empF[x.k] && r[x.f] !== empF[x.k]) return false;
-    if (empF.own && r.created_by !== empF.own) return false;
+    for (const x of FILTERS) if (x.k !== except && empF[x.k].length && !empF[x.k].includes(r[x.f])) return false;
+    if (except !== 'own' && empF.own.length && !empF.own.includes(r.created_by)) return false;
+    if (amin != null || amax != null){ const a = ageOf(r.birth_date); if (a == null || (amin != null && a < amin) || (amax != null && a > amax)) return false; }
+    if (empF.inc && !incomplete(r)) return false;
     if (!toks.length) return true;
     const hay = norm([r.full_name, r.membership_no, r.phone, r.national_id, r.email].join(' '));
     return toks.every(t => hay.includes(t));
   });
 }
-const anyFilter = () => !!(empF.q.trim() || empF.st !== 'active' || empF.own || FILTERS.some(x => empF[x.k]));
+const anyFilter = () => !!(empF.q.trim() || empF.st !== 'active' || empF.own.length || empF.amin !== '' || empF.amax !== '' || empF.inc || FILTERS.some(x => empF[x.k].length));
 function filterNote(){
   const p = [];
   if (empF.st !== 'all') p.push('الحالة: ' + (empF.st === 'active' ? 'نشط' : 'غير نشط'));
-  FILTERS.forEach(x => { if (empF[x.k]) p.push(x.note + ': ' + empF[x.k]); });
-  if (empF.own) p.push('المسؤول: ' + nameOf(empF.own));
+  FILTERS.forEach(x => { if (empF[x.k].length) p.push(x.note + ': ' + empF[x.k].join('، ')); });
+  if (empF.own.length) p.push('المسؤول: ' + empF.own.map(nameOf).join('، '));
+  if (empF.amin !== '' || empF.amax !== '') p.push('العمر: ' + (empF.amin !== '' ? 'من ' + empF.amin : '') + (empF.amax !== '' ? ' إلى ' + empF.amax : ''));
+  if (empF.inc) p.push('بيانات ناقصة فقط');
   if (empF.q.trim()) p.push('بحث: ' + empF.q.trim());
   return p.join('   ·   ');
 }
 async function viewEmployees(tok){
   empF = newF(); empSel.clear();
-  const fopts = list => list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  const defs = [...FILTERS.map(x => ({ k: x.k, all: x.all, note: x.note, items: x.list })), ...(isAdmin() ? [{ k: 'own', all: 'المسؤول عن البيانات', note: 'المسؤول', items: team.map(t => ({ v: t.id, l: t.full_name || t.email })) }] : [])];
+  const ownerField = { own: 'created_by' }, fieldOf = k => ownerField[k] || (FILTERS.find(x => x.k === k) || {}).f;
   paint(tok, `
   ${pageHead('سجّل بيانات الأعضاء وصورهم، ثم ابحث وصفِّ وصدّر ما تحتاجه.', `<button class="btn sec" id="impE" title="إضافة أعضاء أو تحديثهم من ملف Excel">${ic('upload')} استيراد Excel</button><button class="btn sec" id="expE" title="يُصدَّر ما يظهر حالياً حسب البحث والتصفية">${ic('sheet')} تصدير Excel</button><button class="btn" id="addE">${ic('plus')} إضافة عضو</button>`)}
   <div class="card fbar">
@@ -2198,22 +2329,33 @@ async function viewEmployees(tok){
       <span class="muted fbar-cnt" id="cnt"></span>
       <button type="button" class="btn ghost sm" id="fReset" hidden>${ic('x', 15)} مسح التصفية</button>
     </div>
-    <div class="filters" id="flt">
-      ${FILTERS.map(x => `<select data-f="${x.k}" aria-label="تصفية حسب ${esc(x.note)}"><option value="">${esc(x.all)}</option>${fopts(x.list)}</select>`).join('')}
-      ${isAdmin() ? `<select data-f="own" aria-label="تصفية حسب المسؤول عن البيانات"><option value="">كل المسؤولين عن البيانات</option>${team.map(t => `<option value="${t.id}">${esc(t.full_name || t.email)}</option>`).join('')}</select>` : ''}
+    <div class="filters" id="flt">${defs.map(msHtml).join('')}</div>
+    <div class="fx" id="fx">
+      <label class="dl">العمر من <input type="number" inputmode="numeric" min="0" max="99" data-n="amin" aria-label="العمر من"></label>
+      <label class="dl">إلى <input type="number" inputmode="numeric" min="0" max="99" data-n="amax" aria-label="العمر إلى"></label>
+      <label class="tgl"><input type="checkbox" data-t="inc"> بيانات ناقصة فقط</label>
     </div>
+    <div class="fchips" id="fchips" hidden></div>
   </div>
   <div class="card flush" data-nr><div class="bulk" id="ebulk" hidden></div><div id="list" class="tbl">${'<div class="sk" style="height:46px;margin-bottom:10px"></div>'.repeat(4)}</div></div>`);
   $('#q').oninput = e => { empF.q = e.target.value; empF.limit = 60; renderEmployees(); };
   $('#stc').onclick = e => { const b = e.target.closest('button'); if (!b) return; empF.st = b.dataset.v; empF.limit = 60; $$('#stc button').forEach(x => x.classList.toggle('on', x === b)); renderEmployees(); };
-  $('#flt').addEventListener('change', e => {
-    const s = e.target.closest('select[data-f]'); if (!s) return;
-    empF[s.dataset.f] = s.value; empF.limit = 60; renderEmployees();
+  const msRef = msMount($('#flt'), defs, {
+    get: k => empF[k], set: (k, v) => { empF[k] = v; },
+    counts: k => countBy(filteredEmps(false, k), fieldOf(k)),
+    chipsEl: $('#fchips'), onChange: () => { empF.limit = 60; renderEmployees(); }
+  });
+  empMsRefresh = msRef;
+  $('#fx').addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.n){ t.value = t.value.replace(/\D/g, '').slice(0, 2); empF[t.dataset.n] = t.value; }
+    else if (t.dataset.t){ empF[t.dataset.t] = t.checked; } else return;
+    empF.limit = 60; renderEmployees();
   });
   $('#fReset').onclick = () => {
     empF = newF();
     $('#q').value = '';
-    $$('#flt select').forEach(s => { s.value = ''; });
+    $$('#fx input[type=number]').forEach(i => { i.value = ''; }); $$('#fx input[type=checkbox]').forEach(i => { i.checked = false; });
     $$('#stc button').forEach(x => x.classList.toggle('on', x.dataset.v === 'active'));
     renderEmployees();
   };
@@ -2272,14 +2414,14 @@ function renderEmployees(){
   const base = filteredEmps(true);
   const cnts = { all: base.length, active: base.filter(r => r.status === 'active').length, inactive: base.filter(r => r.status === 'inactive').length };
   $$('#stc button').forEach(b => { const s = $('small', b); if (s) s.textContent = cnts[b.dataset.v]; });
-  $$('#flt select').forEach(s => s.classList.toggle('on', !!s.value));
+  if (empMsRefresh) empMsRefresh();
   const rs = $('#fReset'); if (rs) rs.hidden = !anyFilter();
   const c = $('#cnt'); if (c) c.textContent = rows.length + ' من ' + (cnts[empF.st] ?? empCache.length);
   const vis = new Set(rows.map(r => r.id)); empSel.forEach(id => { if (!vis.has(id)) empSel.delete(id); });
   drawEmpBulk();
   const inact = empF.st === 'inactive';
   const note = inact ? `<div class="inact-note">${ic('alert', 16)}<span>هؤلاء خارج قائمة الأعضاء، ولا يظهرون في العدّادات واللوحات ولا في اختيار التقييم. زر «إعادة تنشيط» (السهم المنعطف) يعيد العضو إلى قائمة الأعضاء.</span></div>` : '';
-  if (!rows.length){ list.innerHTML = note + emptyBox('users', cnts[empF.st] ? 'لا توجد نتائج مطابقة.' : inact ? 'لا يوجد أعضاء غير نشطين.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
+  if (!rows.length){ list.innerHTML = note + emptyBox('users', (empCache.length && anyFilter()) || cnts[empF.st] ? 'لا توجد نتائج مطابقة للمرشّحات. جرّب إزالة بعضها.' : inact ? 'لا يوجد أعضاء غير نشطين.' : 'لم تُسجَّل أي بيانات بعد. اضغط «إضافة عضو» للبدء.'); return; }
   const shown = rows.slice(0, empF.limit);
   list.innerHTML = note + `<table><thead><tr>${isAdmin() ? '<th class="chk"><input type="checkbox" class="cb" id="empAll" aria-label="تحديد كل الأعضاء في القائمة"></th>' : ''}<th>العضو</th><th>الصفة</th><th class="hide-md">اللجنة / المحافظة</th><th class="hide-md">الهاتف / البريد</th>${isAdmin() ? '<th>أضافه</th>' : ''}<th></th></tr></thead><tbody>
   ${shown.map((r, i) => `<tr style="--i:${Math.min(i, 12)}"${empSel.has(r.id) ? ' class="sel"' : ''}>
