@@ -1,6 +1,6 @@
 -- =====================================================================
 -- نظام الموارد البشرية الداخلي - قاعدة البيانات والصلاحيات (Supabase)
--- الإصدار 3.18 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
+-- الإصدار 3.20 — آمن لإعادة التشغيل: يمكنك لصقه كاملاً فوق الإصدار القديم.
 -- الصقه كاملاً في: SQL Editor ثم اضغط Run
 -- 3.1: عمود تاريخ الميلاد (birth_date).
 -- 3.4: البريد الإلكتروني (email) + تقييم الأداء لكل مسؤول إدخال لأعضائه فقط. (العمر يُحسب من تاريخ الميلاد ولا يُخزَّن.)
@@ -9,6 +9,9 @@
 -- 3.7: تقييم الأداء من 10 بأربعة معايير (التفاعل، تسليم المهام في الموعد، الجودة، حضور الاجتماعات).
 -- 3.8: نموذج تسجيل ذاتي عام (بدون دخول) + طلبات تُراجَع وتُقبل أو تُرفض (جدول registrations).
 -- 3.9: الطلبات تظهر للمسؤول ولأعضاء الفريق، ومن يوافق على طلب يصبح المسؤول عن بيانات العضو.
+-- 3.20: مساعد / مستشار / غير ذلك بلا لجنة (الصفة الكاملة فقط) فصار committee اختيارياً في registrations؛ حُذف «ممثل مكتب المشروعات» و«ممثل المكتب الفني» من الواجهة (تبقى مقبولة في القاعدة حفاظاً على بيانات قديمة)، وأُضيفت «وحدة التسويق المركزي».
+-- 3.19: صفحة التقييمات ثلاثة أقسام: الأعضاء (كما هي) + المنسقون ونوابهم + المكتب التنفيذي (رؤساء اللجان المركزية)
+--       جدولان جديدان للمسؤول فقط: eval_people (الأشخاص) وeval_reviews (التقييم الشهري، المعايير داخل jsonb فلا يلزم تعديل القاعدة عند تغييرها).
 -- 3.18: لا تغيير في قاعدة البيانات (مرشّحات متعددة الاختيار في الواجهة فقط).
 -- 3.17: ضغط الصور عند الرفع (≈100KB للشخصية و≈150KB للهوية) وخفض حد الـ bucket إلى 512KB.
 -- 3.16: صفات جديدة (مساعد / مستشار / غير ذلك) مع عمود «الصفة كاملة» capacity_detail، وجهات إضافية للرئيس والنائب (رئيس الاتحاد، وحدة التحول الرقمي، لجنة الحوكمة، المجلس الرقابي، الأمين العام للمكتب الفني ونائبه). حذف الطلبات للمسؤول (الصلاحية موجودة).
@@ -476,6 +479,7 @@ begin
       'لجنة العلاقات العامة والدولية',
       'لجنة الاستدامة والتحول الأخضر',
       'لجنة السياحة والثقافة',
+      'وحدة التسويق المركزي',
       'لجنة التخطيط والمتابعة',
       'ممثل مكتب المشروعات',
       'ممثل المكتب الفني',
@@ -673,6 +677,7 @@ create table if not exists public.registrations (
 );
 
 alter table public.registrations add column if not exists capacity_detail text;   -- [جديد 3.16]
+alter table public.registrations alter column committee drop not null;              -- [جديد 3.20] مساعد/مستشار/غير ذلك بلا لجنة
 
 do $$
 begin
@@ -687,7 +692,7 @@ begin
     and union_governorate in ('القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية', 'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد', 'الإسماعيلية', 'السويس', 'شمال سيناء', 'جنوب سيناء', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'البحر الأحمر', 'الوادي الجديد', 'مطروح')
     and char_length(address) between 1 and 300
     and capacity in ('رئيس','نائب','منسق','نائب منسق','عضو','عضو مركزي','ممثل','مساعد','مستشار','غير ذلك')
-    and committee in ('لجنة المكتب الإعلامي', 'لجنة الموارد البشرية', 'لجنة التنظيم والمراسم', 'لجنة التدريب والتطوير', 'لجنة العلاقات العامة والدولية', 'لجنة الاستدامة والتحول الأخضر', 'لجنة السياحة والثقافة', 'لجنة التخطيط والمتابعة', 'ممثل مكتب المشروعات', 'ممثل المكتب الفني', 'رئيس الاتحاد', 'نائب رئيس الاتحاد', 'وحدة التحول الرقمي', 'لجنة الحوكمة', 'المجلس الرقابي', 'الأمين العام للمكتب الفني', 'نائب الأمين العام للمكتب الفني', 'محافظة القاهرة', 'محافظة الجيزة', 'محافظة الإسكندرية', 'محافظة القليوبية', 'محافظة الشرقية', 'محافظة الدقهلية', 'محافظة الغربية', 'محافظة المنوفية', 'محافظة البحيرة', 'محافظة كفر الشيخ', 'محافظة دمياط', 'محافظة بورسعيد', 'محافظة الإسماعيلية', 'محافظة السويس', 'محافظة شمال سيناء', 'محافظة جنوب سيناء', 'محافظة الفيوم', 'محافظة بني سويف', 'محافظة المنيا', 'محافظة أسيوط', 'محافظة سوهاج', 'محافظة قنا', 'محافظة الأقصر', 'محافظة أسوان', 'محافظة البحر الأحمر', 'محافظة الوادي الجديد', 'محافظة مطروح')
+    and ((committee is not null and committee in ('لجنة المكتب الإعلامي', 'لجنة الموارد البشرية', 'لجنة التنظيم والمراسم', 'لجنة التدريب والتطوير', 'لجنة العلاقات العامة والدولية', 'لجنة الاستدامة والتحول الأخضر', 'لجنة السياحة والثقافة', 'لجنة التخطيط والمتابعة', 'وحدة التسويق المركزي', 'ممثل مكتب المشروعات', 'ممثل المكتب الفني', 'رئيس الاتحاد', 'نائب رئيس الاتحاد', 'وحدة التحول الرقمي', 'لجنة الحوكمة', 'المجلس الرقابي', 'الأمين العام للمكتب الفني', 'نائب الأمين العام للمكتب الفني', 'محافظة القاهرة', 'محافظة الجيزة', 'محافظة الإسكندرية', 'محافظة القليوبية', 'محافظة الشرقية', 'محافظة الدقهلية', 'محافظة الغربية', 'محافظة المنوفية', 'محافظة البحيرة', 'محافظة كفر الشيخ', 'محافظة دمياط', 'محافظة بورسعيد', 'محافظة الإسماعيلية', 'محافظة السويس', 'محافظة شمال سيناء', 'محافظة جنوب سيناء', 'محافظة الفيوم', 'محافظة بني سويف', 'محافظة المنيا', 'محافظة أسيوط', 'محافظة سوهاج', 'محافظة قنا', 'محافظة الأقصر', 'محافظة أسوان', 'محافظة البحر الأحمر', 'محافظة الوادي الجديد', 'محافظة مطروح')) or (committee is null and capacity in ('مساعد','مستشار','غير ذلك')))
     and ((capacity in ('منسق','نائب منسق')) = (committee like 'محافظة %'))
     and (committee not in ('رئيس الاتحاد','نائب رئيس الاتحاد','وحدة التحول الرقمي','لجنة الحوكمة','المجلس الرقابي','الأمين العام للمكتب الفني','نائب الأمين العام للمكتب الفني') or capacity in ('رئيس','نائب'))
     and ((capacity in ('مساعد','مستشار','غير ذلك') and char_length(btrim(coalesce(capacity_detail, ''))) between 1 and 100) or (capacity not in ('مساعد','مستشار','غير ذلك') and capacity_detail is null))
@@ -1133,7 +1138,8 @@ begin
                      then coalesce(nullif(trim(r->>'capacity_detail'), ''), case when capacity = trim(r->>'capacity') then capacity_detail end)
                      else null end
               else coalesce(nullif(trim(r->>'capacity_detail'), ''), capacity_detail) end,
-            committee         = coalesce(nullif(trim(r->>'committee'), ''), committee),
+            committee         = case when trim(r->>'capacity') in ('مساعد','مستشار','غير ذلك') then null
+                                     else coalesce(nullif(trim(r->>'committee'), ''), committee) end,
             study_status      = coalesce(nullif(trim(r->>'study_status'), ''), study_status),
             edu_stage         = coalesce(nullif(trim(r->>'edu_stage'), ''), edu_stage),
             institution       = coalesce(nullif(trim(r->>'institution'), ''), institution),
@@ -1156,7 +1162,7 @@ begin
              nullif(trim(r->>'birth_date'), '')::date, nullif(trim(r->>'gender'), ''), nullif(trim(r->>'governorate'), ''),
              nullif(trim(r->>'union_governorate'), ''), nullif(trim(r->>'address'), ''), nullif(trim(r->>'capacity'), ''),
              case when trim(r->>'capacity') in ('مساعد','مستشار','غير ذلك') then nullif(trim(r->>'capacity_detail'), '') end,
-             nullif(trim(r->>'committee'), ''), nullif(trim(r->>'study_status'), ''), nullif(trim(r->>'edu_stage'), ''),
+             case when trim(r->>'capacity') in ('مساعد','مستشار','غير ذلك') then null else nullif(trim(r->>'committee'), '') end, nullif(trim(r->>'study_status'), ''), nullif(trim(r->>'edu_stage'), ''),
              nullif(trim(r->>'institution'), ''), coalesce(nullif(trim(r->>'status'), ''), 'active'), o)
           returning id into eid;
           act := 'insert'; moved := true;
@@ -1224,6 +1230,66 @@ end;
 $$;
 revoke all on function public.assign_members(uuid[], uuid) from public, anon;
 grant execute on function public.assign_members(uuid[], uuid) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 15) [3.19] تقييم المنسقين ونوابهم والمكتب التنفيذي (للمسؤول فقط)
+--     eval_people  : الأشخاص الذين يضيفهم المسؤول في كل قسم (kind = coord | exec)
+--     eval_reviews : تقييم شهري لكل شخص. الدرجات في scores (jsonb) والأرقام في metrics (jsonb)،
+--                    فتغيير المعايير لاحقاً يتم من الواجهة فقط ولا يحتاج تعديلاً هنا.
+--     أقسام الأعضاء تبقى في جدول performance كما هي دون أي تغيير.
+-- ---------------------------------------------------------------------
+create table if not exists public.eval_people (
+  id          uuid primary key default gen_random_uuid(),
+  kind        text not null check (kind in ('coord', 'exec')),
+  full_name   text not null check (char_length(btrim(full_name)) between 2 and 120),
+  title       text check (title is null or char_length(title) <= 80),
+  scope       text check (scope is null or char_length(scope) <= 120),
+  employee_id uuid references public.employees(id) on delete set null,
+  active      boolean not null default true,
+  notes       text check (notes is null or char_length(notes) <= 1000),
+  created_by  uuid default auth.uid() references auth.users(id),
+  created_at  timestamptz not null default now()
+);
+create index if not exists eval_people_kind_idx on public.eval_people (kind, active);
+create unique index if not exists eval_people_emp_uq on public.eval_people (kind, employee_id) where employee_id is not null;
+
+create or replace function public.eval_scores_ok(j jsonb) returns boolean
+language sql immutable as $$
+  select jsonb_typeof(j) = 'object' and not exists (
+    select 1 from jsonb_each(j) e
+    where jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric not between 1 and 10);
+$$;
+create or replace function public.eval_metrics_ok(j jsonb) returns boolean
+language sql immutable as $$
+  select jsonb_typeof(j) = 'object' and not exists (
+    select 1 from jsonb_each(j) e
+    where jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric not between 0 and 1000000);
+$$;
+
+create table if not exists public.eval_reviews (
+  id         uuid primary key default gen_random_uuid(),
+  person_id  uuid not null references public.eval_people(id) on delete cascade,
+  month      date not null check (extract(day from month) = 1),
+  scores     jsonb not null default '{}'::jsonb check (public.eval_scores_ok(scores)),
+  metrics    jsonb not null default '{}'::jsonb check (public.eval_metrics_ok(metrics)),
+  executed   text check (executed is null or char_length(executed) <= 4000),
+  notes      text check (notes is null or char_length(notes) <= 2000),
+  created_by uuid default auth.uid() references auth.users(id),
+  created_at timestamptz not null default now(),
+  unique (person_id, month)
+);
+create index if not exists eval_reviews_month_idx on public.eval_reviews (month);
+
+alter table public.eval_people  enable row level security;
+alter table public.eval_reviews enable row level security;
+
+drop policy if exists "eval_people_admin_all" on public.eval_people;
+create policy "eval_people_admin_all" on public.eval_people
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "eval_reviews_admin_all" on public.eval_reviews;
+create policy "eval_reviews_admin_all" on public.eval_reviews
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- =====================================================================
 -- إعلام Supabase بتحديث ذاكرة الجداول فوراً (يمنع خطأ: Could not find the column ... in the schema cache)

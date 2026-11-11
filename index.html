@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.18
+   نظام التصميم — الإصدار 3.20
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -459,6 +459,11 @@ th.c,td.c{text-align:center}
 .scv{display:inline-grid;place-items:center;min-width:30px;height:28px;padding:0 6px;border-radius:8px;font-weight:700;font-size:14px;background:var(--ok-soft);color:var(--ok)}
 .scv.warn{background:var(--warn-soft);color:var(--warn)}
 .scv.bad{background:var(--bad-soft);color:var(--bad)}
+.chips.tabs3{display:flex;width:100%;margin-bottom:16px}
+.chips.tabs3 button{flex:1;padding:4px 8px;min-height:40px;line-height:1.3}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;max-width:340px;min-width:160px}
+.st-lbl{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.st-lbl .muted{font-size:12.5px;font-weight:400}
 .crit-avg{display:grid;gap:16px;padding-top:6px}
 .crit-avg .pr{gap:12px}
 .crit-avg .ca-l{flex:none;width:150px;font-size:14px}
@@ -601,7 +606,7 @@ const LEAD_UNITS = ['رئيس الاتحاد','نائب رئيس الاتحاد'
 /* المنسق ونائب المنسق: بدل اللجنة يختاران محافظة (تُخزَّن «محافظة القاهرة» في عمود committee) */
 const COORD_CAPS = ['منسق','نائب منسق'];
 const isCoord = cap => COORD_CAPS.includes(cap);
-const COMMITTEES = ['لجنة المكتب الإعلامي','لجنة الموارد البشرية','لجنة التنظيم والمراسم','لجنة التدريب والتطوير','لجنة العلاقات العامة والدولية','لجنة الاستدامة والتحول الأخضر','لجنة السياحة والثقافة','لجنة التخطيط والمتابعة','ممثل مكتب المشروعات','ممثل المكتب الفني'];
+const COMMITTEES = ['لجنة المكتب الإعلامي','لجنة الموارد البشرية','لجنة التنظيم والمراسم','لجنة التدريب والتطوير','لجنة العلاقات العامة والدولية','لجنة الاستدامة والتحول الأخضر','لجنة السياحة والثقافة','لجنة التخطيط والمتابعة','وحدة التسويق المركزي'];
 const COORD_UNITS = GOVS.map(g => 'محافظة ' + g);
 const ALL_COMMS = [...COMMITTEES, ...LEAD_UNITS];
 const commList = cap => isCoord(cap) ? COORD_UNITS : LEAD_CAPS.includes(cap) ? ALL_COMMS : COMMITTEES;
@@ -728,6 +733,56 @@ const PERF_CRITERIA = [['interaction_score', 'التفاعل'], ['ontime_score',
 const perfScore = r => { const v = PERF_CRITERIA.map(([k]) => r[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 const perfAvg = rows => { const v = rows.map(perfScore).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 const scoreCls = a => a >= 8 ? '' : a >= 5 ? 'warn' : 'bad';
+
+/* ================= [3.19] أقسام تقييم الأداء =================
+   الأعضاء: PERF_CRITERIA أعلاه (دون تغيير). المنسقون ونوابهم والمكتب التنفيذي: لكلٍّ تقييمه الخاص هنا.
+   ⚠ المعايير الحالية مؤقتة. لاستبدالها بمعاييرك عدّل القوائم criteria / metrics فقط، لا شيء آخر:
+     criteria = معايير بدرجة من 10 → ['مفتاح_لاتيني', 'العنوان الظاهر']
+     metrics  = أرقام تُدخل يدوياً (مثل عدد الأنشطة) → ['مفتاح_لاتيني', 'العنوان الظاهر']
+     ratio    = ['مفتاح العدد المنفَّذ', 'مفتاح العدد المخطَّط'] لحساب نسبة التنفيذ تلقائياً (أو null)
+   لا حاجة لتعديل قاعدة البيانات: الدرجات تُحفظ في عمود jsonb.
+   لا تغيّر «المفتاح» لمعيار له تقييمات محفوظة (غيّر العنوان فقط)، وإلا لن تظهر درجاته القديمة؛ أضف مفتاحاً جديداً بدلاً من ذلك. */
+const PERF_KINDS = {
+  coord: {
+    tab: 'المنسقون ونوابهم', short: 'المنسقين', add: 'منسق أو نائب منسق',
+    titles: ['منسق', 'نائب منسق'],
+    scopeLbl: 'المحافظة', scopeOpts: COORD_UNITS,
+    pick: e => isCoord(e.capacity), titleOf: e => e.capacity,
+    execLbl: 'ما تم تنفيذه خلال الشهر', execHint: 'اكتب الأنشطة والمهام التي نُفذت في المحافظة خلال هذا الشهر',
+    criteria: [
+      ['plan', 'إنجاز خطة الشهر'],
+      ['activities', 'جودة الأنشطة المنفذة'],
+      ['follow', 'متابعة الأعضاء'],
+      ['report', 'تسليم التقرير الشهري في موعده'],
+      ['coord', 'التنسيق مع اللجان والمكتب'],
+      ['solve', 'حل المشكلات والمبادرة']
+    ],
+    metrics: [['planned', 'أنشطة مخطط لها'], ['done', 'أنشطة نُفذت فعلاً'], ['members', 'عدد أعضاء المحافظة']],
+    ratio: ['done', 'planned']
+  },
+  exec: {
+    tab: 'المكتب التنفيذي', short: 'التنفيذي', add: 'رئيس لجنة مركزية',
+    titles: ['رئيس لجنة مركزية', 'نائب رئيس لجنة مركزية'],
+    scopeLbl: 'اللجنة المركزية', scopeOpts: ALL_COMMS,
+    pick: e => e.capacity === 'رئيس' && COMMITTEES.includes(e.committee), titleOf: () => 'رئيس لجنة مركزية',
+    execLbl: 'ما تم تنفيذه خلال الشهر', execHint: 'اكتب إنجازات اللجنة ومخرجاتها خلال هذا الشهر',
+    criteria: [
+      ['goals', 'تحقيق أهداف خطة اللجنة'],
+      ['quality', 'جودة المخرجات'],
+      ['ontime', 'الالتزام بالمواعيد'],
+      ['team', 'إدارة الفريق ومتابعة المحافظات'],
+      ['meetings', 'حضور الاجتماعات'],
+      ['initiative', 'المبادرة والتطوير'],
+      ['comm', 'التواصل والتنسيق']
+    ],
+    metrics: [['planned', 'أنشطة مخطط لها'], ['done', 'أنشطة نُفذت فعلاً']],
+    ratio: ['done', 'planned']
+  }
+};
+const kScore = (K, r) => { const sc = r.scores || {}; const v = K.criteria.map(([k]) => sc[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+const kRatio = (K, r) => { if (!K.ratio) return null; const m = r.metrics || {}, d = m[K.ratio[0]], pl = m[K.ratio[1]]; return d != null && pl > 0 ? Math.round(d / pl * 1000) / 10 : null; };
+const ratioCls = x => x >= 80 ? '' : x >= 50 ? 'warn' : 'bad';
+let perfTab = 'member';
 const avg = (a, k) => a.length ? a.reduce((s, x) => s + (x[k] || 0), 0) / a.length : null;
 const weekStart = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); };
 const stars = n => n ? `<span class="stars" aria-label="${n} من 5">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>` : '—';
@@ -799,8 +854,8 @@ function toast(msg, isErr){
 }
 function friendly(e){
   const m = (e && e.message) || String(e);
-  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.18) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
-  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.18) في SQL Editor ثم أعد المحاولة.';
+  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.20) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
+  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.20) في SQL Editor ثم أعد المحاولة.';
   if (/employees_cap_detail_chk/i.test(m)) return 'اكتب «الصفة كاملة» لمساعد / مستشار / غير ذلك';
   if (/employees_lead_unit_chk/i.test(m)) return 'هذه الجهة متاحة للرئيس والنائب فقط';
   if (/registrations_pending_nid/i.test(m)) return 'تم استلام طلب بهذا الرقم من قبل وهو قيد المراجعة';
@@ -1121,6 +1176,34 @@ const perfSheet = (perf, en) => ({
     { h: 'ملاحظات', w: 46, t: 'text', v: p => p.notes }
   ]
 });
+const staffSheet = (kind, people, reviews) => {
+  const K = PERF_KINDS[kind], pm = new Map(people.map(x => [x.id, x]));
+  return {
+    name: 'تقييم ' + K.short, title: 'تقييم ' + K.tab + ' الشهري',
+    rows: reviews.filter(r => pm.has(r.person_id)).sort((a, b) => String(b.month).localeCompare(String(a.month))),
+    cols: [
+      { h: 'م', w: 6, t: 'num', v: (r, i) => i + 1 },
+      { h: 'الاسم', w: 30, t: 'text', v: r => pm.get(r.person_id).full_name },
+      { h: 'الصفة', w: 22, t: 'text', v: r => pm.get(r.person_id).title },
+      { h: K.scopeLbl, w: 26, t: 'text', v: r => pm.get(r.person_id).scope },
+      { h: 'الشهر', w: 12, t: 'code', v: r => r.month.slice(0, 7) },
+      { h: 'المعدل (من 10)', w: 14, t: 'num1', v: r => kScore(K, r) },
+      ...K.criteria.map(([k, l]) => ({ h: l + ' (من 10)', w: 18, t: 'num', v: r => (r.scores || {})[k] })),
+      ...K.metrics.map(([k, l]) => ({ h: l, w: 16, t: 'num', v: r => (r.metrics || {})[k] })),
+      ...(K.ratio ? [{ h: 'نسبة التنفيذ (%)', w: 15, t: 'num1', v: r => kRatio(K, r) }] : []),
+      { h: K.execLbl, w: 60, t: 'text', v: r => r.executed },
+      { h: 'ملاحظات', w: 46, t: 'text', v: r => r.notes }
+    ]
+  };
+};
+async function fetchStaff(){
+  const [people, reviews] = await Promise.all([db(sb.from('eval_people').select('*').order('full_name')), db(sb.from('eval_reviews').select('*').order('month', { ascending: false }))]);
+  return { people, reviews };
+}
+async function staffSheets(){
+  try { const { people, reviews } = await fetchStaff(); return Object.keys(PERF_KINDS).map(k => staffSheet(k, people.filter(x => x.kind === k), reviews)); }
+  catch (e) { console.warn('eval tables unavailable', e); return []; }   // لا نمنع تصدير باقي البيانات إن لم يُحدَّث schema.sql بعد
+}
 const engSheet = eng => ({
   name: 'التفاعل', title: 'التفاعل الأسبوعي',
   rows: [...eng].sort((a, b) => String(b.week_start).localeCompare(String(a.week_start))),
@@ -1638,7 +1721,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.18</div>
+      <div class="side-foot muted">الإصدار 3.20</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1977,6 +2060,7 @@ function impNormalize(raw){
   put('committee', (() => {
     const s = impStr(raw.committee); if (!s) return { v: '' };
     const cap = f.capacity, k = norm(s);
+    if (cap && isFree(cap)) return { v: '' };   // [3.20] مساعد/مستشار/غير ذلك بلا لجنة
     let hit = [...ALL_COMMS, ...COORD_UNITS].find(x => norm(x) === k);
     if (!hit && (!cap || isCoord(cap))){ const g = GOVS.find(x => norm(x) === k); if (g) hit = 'محافظة ' + g; }   // المحافظة بدون كلمة «محافظة»
     if (!hit) return { err: `اللجنة / جهة التمثيل غير معروفة: «${s}»` };
@@ -2146,7 +2230,7 @@ function importModal(){
       busy(`جارٍ فحص الصفوف ومطابقتها مع السجل… ${Math.min(i + 200, todo.length)} من ${todo.length}`, 20 + Math.round((i / todo.length) * 75));
       const chunk = todo.slice(i, i + 200);
       const { data, error } = await sb.rpc('import_members', { p_rows: chunk.map(r => ({ i: r.n, ...r.f })), p_owner: adm ? (S.owner === 'file' ? me.id : S.owner) : null, p_mode: S.mode, p_reassign: false, p_dry: true });
-      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.18) في Supabase ثم أعد المحاولة.' : error.message);
+      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.20) في Supabase ثم أعد المحاولة.' : error.message);
       const by = new Map(data.map(x => [x.i, x]));
       chunk.forEach(r => { const x = by.get(r.n) || { a: 'error', m: 'لم يرد رد من الخادم' }; r.act = x.a; r.msg = x.m || ''; });
     }
@@ -2287,7 +2371,7 @@ function importModal(){
 
 /* ================= بيانات الأعضاء ================= */
 let empCache = [], empF = newF(), empMsRefresh = null;
-const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || (isFree(r.capacity) && !r.capacity_detail) || !r.committee || !r.phone || !r.address || !r.birth_date
+const incomplete = r => !r.membership_no || !r.governorate || !r.national_id || !r.capacity || (isFree(r.capacity) && !r.capacity_detail) || (!isFree(r.capacity) && !r.committee) || !r.phone || !r.address || !r.birth_date
   || !r.email || !r.gender || !r.union_governorate || !r.study_status || !r.edu_stage || !r.institution;
 
 /* skipSt = true: تجاهل فلتر الحالة (لحساب عدّادات أزرار الكل/نشط/غير نشط) */
@@ -2584,7 +2668,7 @@ function wireMemberForm(root){
   };
   cap.addEventListener('change', syncDet); syncDet();
   const sync = () => {
-    const on = !!cap.value, was = !box.hidden, kind = isCoord(cap.value) ? 'unit' : 'com';
+    const on = !!cap.value && !isFree(cap.value), was = !box.hidden, kind = isCoord(cap.value) ? 'unit' : 'com';   // [3.20] مساعد/مستشار/غير ذلك: لا لجنة، فقط مربع الصفة
     if (box.dataset.kind !== kind || box.dataset.lead !== String(LEAD_CAPS.includes(cap.value))){
       box.dataset.lead = String(LEAD_CAPS.includes(cap.value));
       const ck = $('input[name=committee]:checked', box);
@@ -2620,7 +2704,7 @@ const readMemberRow = f => {
     address: String(f.get('address')).trim(),
     capacity: f.get('capacity'),
     capacity_detail: isFree(f.get('capacity')) ? String(f.get('capacity_detail') || '').replace(/\s+/g, ' ').trim() : null,
-    committee: f.get('committee'),
+    committee: isFree(f.get('capacity')) ? null : f.get('committee'),
     gender: f.get('gender'),
     union_governorate: f.get('union_governorate'),
     study_status: f.get('study_status'),
@@ -2645,7 +2729,7 @@ const memberErr = (row, needMno) => {
   if (!CAPS.includes(row.capacity)) return 'اختر الصفة';
   if (isFree(row.capacity) && !row.capacity_detail) return 'اكتب الصفة كاملة';
   if (row.capacity_detail && row.capacity_detail.length > 100) return 'الصفة كاملة أطول من 100 حرف';
-  if (!commList(row.capacity).includes(row.committee)) return isCoord(row.capacity) ? 'اختر المحافظة التي ينسّق لها' : 'اختر اللجنة أو جهة التمثيل';
+  if (!isFree(row.capacity) && !commList(row.capacity).includes(row.committee)) return isCoord(row.capacity) ? 'اختر المحافظة التي ينسّق لها' : 'اختر اللجنة أو جهة التمثيل';
   if (!GENDERS.includes(row.gender)) return 'اختر الجنس';
   if (!GOVS.includes(row.union_governorate)) return 'اختر المحافظة التابع لها بالاتحاد';
   if (!STUDY.includes(row.study_status)) return 'اختر: طالب أو خريج';
@@ -2791,7 +2875,7 @@ function deliverModal(t){
 const SAT_OPTS = [[1, '😞', 'ضعيف'], [2, '🙁', 'دون المتوسط'], [3, '😐', 'متوسط'], [4, '🙂', 'جيد'], [5, '😄', 'ممتاز']];
 const WORK_OPTS = [[1, '1', 'خفيف'], [2, '2', 'مقبول'], [3, '3', 'متوسط'], [4, '4', 'ثقيل'], [5, '5', 'مرهق']];
 const RATE_OPTS = [[1, '1', 'ضعيف'], [2, '2', 'مقبول'], [3, '3', 'جيد'], [4, '4', 'جيد جداً'], [5, '5', 'ممتاز']];
-const pickTen = name => `<div class="pick ten" role="radiogroup" aria-label="${name}">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<label><input type="radio" name="${name}" value="${v}" required><span><b>${v}</b></span></label>`).join('')}</div>`;
+const pickTen = (name, label = name) => `<div class="pick ten" role="radiogroup" aria-label="${esc(label)}">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<label><input type="radio" name="${name}" value="${v}" required><span><b>${v}</b></span></label>`).join('')}</div>`;
 const pick = (name, items, val) => `<div class="pick" role="radiogroup">${items.map(([v, l, s]) => `<label><input type="radio" name="${name}" value="${v}"${String(val) === String(v) ? ' checked' : ''} required><span><b>${l}</b><small>${s}</small></span></label>`).join('')}</div>`;
 
 function weeklyChart(rows){
@@ -2834,7 +2918,13 @@ async function viewEngagement(tok){
 
 /* ================= الأداء: المسؤول لكل الأعضاء، ومسؤول الإدخال لأعضائه فقط ================= */
 let perfCache = [];
-async function viewPerformance(tok){
+const perfTabs = () => !isAdmin() ? '' : `<div class="chips tabs3" id="ptabs" role="tablist" aria-label="أقسام التقييم">${[['member', 'الأعضاء'], ['coord', PERF_KINDS.coord.tab], ['exec', PERF_KINDS.exec.tab]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === perfTab}" data-v="${k}"${k === perfTab ? ' class="on"' : ''}>${l}</button>`).join('')}</div>`;
+function bindPerfTabs(){
+  const t = $('#ptabs'); if (!t) return;
+  t.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b || b.dataset.v === perfTab) return; perfTab = b.dataset.v; go('performance'); };
+}
+function viewPerformance(tok){ return (!isAdmin() || perfTab === 'member') ? perfMembers(tok) : perfStaff(tok, perfTab); }
+async function perfMembers(tok){
   const [emps, perf] = await Promise.all([
     db(isAdmin() ? sb.from('employees').select('id,full_name,membership_no,status').order('full_name') : sb.from('employees').select('id,full_name,membership_no,status').eq('created_by', me.id).order('full_name')),
     db(sb.from('performance').select('*').order('month', { ascending: false }))
@@ -2855,7 +2945,7 @@ async function viewPerformance(tok){
       <td>${mine(r) ? `<button class="btn danger sm icon" data-a="del" data-id="${r.id}" title="حذف" aria-label="حذف">${ic('trash')}</button>` : `<span class="tag mut" title="قيّمه المسؤول">للقراءة</span>`}</td></tr>`; }).join('')}</tbody></table>`;
   };
   if (!paint(tok, `
-  ${pageHead(isAdmin() ? 'قيّم أداء الأعضاء شهرياً من 10 في أربعة معايير، وراجع التقييمات السابقة.' : 'قيّم أداء الأعضاء الذين أدخلت بياناتهم فقط (من 10 في أربعة معايير)، وراجع تقييماتك السابقة.')}
+  ${pageHead(isAdmin() ? 'قيّم أداء الأعضاء شهرياً من 10 في أربعة معايير، وراجع التقييمات السابقة.' : 'قيّم أداء الأعضاء الذين أدخلت بياناتهم فقط (من 10 في أربعة معايير)، وراجع تقييماتك السابقة.')}${perfTabs()}
   <div class="card"><h2>تقييم شهري</h2>
     ${emps.some(e => e.status !== 'inactive') ? `<form id="pf"><div class="grid">
       <div class="fld"><label>العضو *</label><select name="employee_id" required>${emps.filter(e => e.status !== 'inactive').map(e => `<option value="${e.id}">${esc(e.full_name)}${e.membership_no ? ' — ' + esc(e.membership_no) : ''}</option>`).join('')}</select></div>
@@ -2866,6 +2956,7 @@ async function viewPerformance(tok){
       <div class="muted" id="pnote" style="margin-top:8px"></div>
       <div style="margin-top:12px"><button class="btn" id="pSave">حفظ التقييم</button></div></form>` : emptyBox('users', isAdmin() ? 'سجّل أعضاء أولاً من صفحة «بيانات الأعضاء» ثم قيّمهم هنا.' : 'لا يوجد أعضاء أدخلت بياناتهم بعد. أضف عضواً من صفحة «بيانات الأعضاء» ثم قيّمه هنا.')}</div>
   <div class="card"><h2>التقييمات <select id="pmf" style="width:auto;min-width:140px" aria-label="تصفية بالشهر"><option value="all">كل الأشهر</option>${months.map(m => `<option>${esc(m)}</option>`).join('')}</select></h2><div class="tbl" id="pl">${table()}</div></div>`)) return;
+  bindPerfTabs();
   $('#pmf').onchange = e => { flt = e.target.value; $('#pl').innerHTML = table(); };
   $('#pl').addEventListener('click', async e => {
     const b = e.target.closest('button[data-a=del]'); if (!b) return;
@@ -2893,6 +2984,171 @@ async function viewPerformance(tok){
   onSubmit(pf, async f => {
     if (!f.get('month')) return toast('اختر الشهر', true);
     await db(sb.from('performance').upsert({ employee_id: f.get('employee_id'), month: f.get('month') + '-01', ...Object.fromEntries(PERF_CRITERIA.map(([k]) => [k, +f.get(k)])), notes: f.get('notes').trim() || null }, { onConflict: 'employee_id,month' }));
+    toast('تم حفظ التقييم'); go('performance');
+  });
+}
+
+/* ================= [3.19] تقييم المنسقين ونوابهم والمكتب التنفيذي (للمسؤول فقط) ================= */
+async function perfStaff(tok, kind){
+  const K = PERF_KINDS[kind];
+  const [people, allRev, emps] = await Promise.all([
+    db(sb.from('eval_people').select('*').eq('kind', kind).order('full_name')),
+    db(sb.from('eval_reviews').select('*').order('month', { ascending: false })),
+    db(sb.from('employees').select('id,full_name,capacity,committee,status').order('full_name'))
+  ]);
+  const ids = new Set(people.map(x => x.id));
+  const revs = allRev.filter(r => ids.has(r.person_id));
+  const pBy = id => people.find(x => x.id === id) || {};
+  const actives = people.filter(x => x.active);
+  const months = [...new Set(revs.map(r => r.month.slice(0, 7)))];
+  const used = new Set(people.filter(x => x.employee_id).map(x => x.employee_id));
+  const cands = emps.filter(e => e.status !== 'inactive' && K.pick(e) && !used.has(e.id));
+  let flt = 'all';
+
+  const peopleTable = () => !people.length ? emptyBox('users', `لم تُضف أحداً بعد. اضغط «إضافة» لتسجيل ${K.add}.`) : `<table><thead><tr><th>الاسم</th><th>الصفة</th><th class="hide-md">${K.scopeLbl}</th><th>آخر تقييم</th><th>الحالة</th><th></th></tr></thead><tbody>
+    ${people.map((x, i) => { const last = revs.find(r => r.person_id === x.id), a = last ? kScore(K, last) : null;
+      return `<tr style="--i:${Math.min(i, 12)}"><td style="min-width:130px"><b>${esc(x.full_name)}</b></td><td>${esc(x.title) || '—'}</td><td class="hide-md">${esc(x.scope) || '—'}</td>
+      <td style="white-space:nowrap">${a == null ? '—' : `<span class="scv ${scoreCls(a)}">${a.toFixed(1)}</span> <small class="muted">${esc(last.month.slice(0, 7))}</small>`}</td>
+      <td><span class="tag ${x.active ? 'ok' : 'mut'}">${x.active ? 'نشط' : 'متوقف'}</span></td>
+      <td style="white-space:nowrap"><button class="btn sec sm icon" data-a="pedit" data-id="${x.id}" title="تعديل" aria-label="تعديل ${esc(x.full_name)}">${ic('edit', 16)}</button> <button class="btn danger sm icon" data-a="pdel" data-id="${x.id}" title="حذف" aria-label="حذف ${esc(x.full_name)}">${ic('trash', 16)}</button></td></tr>`; }).join('')}</tbody></table>`;
+
+  const revTable = () => {
+    const rows = revs.filter(r => flt === 'all' || r.month.slice(0, 7) === flt);
+    if (!rows.length) return emptyBox('star', revs.length ? 'لا توجد تقييمات في هذا الشهر.' : 'لا توجد تقييمات بعد.');
+    return `<table><thead><tr><th>الاسم</th><th>الشهر</th><th>المعدل من 10</th>${K.ratio ? '<th>نسبة التنفيذ</th>' : ''}<th class="hide-md">${esc(K.execLbl)}</th><th></th></tr></thead><tbody>
+    ${rows.map((r, i) => { const a = kScore(K, r), rt = kRatio(K, r), x = pBy(r.person_id);
+      return `<tr style="--i:${Math.min(i, 12)}"><td style="min-width:130px"><b>${esc(x.full_name)}</b><br><small class="muted">${esc(x.scope) || ''}</small></td><td style="white-space:nowrap">${esc(r.month.slice(0, 7))}</td>
+      <td>${a == null ? '—' : `<div class="pr"><div class="prog"><i class="${scoreCls(a)}" style="--w:${a * 10}%"></i></div><b>${a.toFixed(1)}</b></div>`}</td>
+      ${K.ratio ? `<td>${rt == null ? '—' : `<span class="scv ${ratioCls(rt)}">${rt}%</span>`}</td>` : ''}
+      <td class="hide-md"><div class="clamp2" title="${esc(r.executed)}">${esc(r.executed) || '—'}</div></td>
+      <td style="white-space:nowrap"><button class="btn sec sm icon" data-a="rview" data-id="${r.id}" title="التفاصيل" aria-label="تفاصيل تقييم ${esc(x.full_name)}">${ic('eye', 16)}</button> <button class="btn danger sm icon" data-a="rdel" data-id="${r.id}" title="حذف" aria-label="حذف التقييم">${ic('trash', 16)}</button></td></tr>`; }).join('')}</tbody></table>`;
+  };
+  const missLine = () => {
+    if (!actives.length) return '';
+    const sel = flt === 'all' ? today().slice(0, 7) : flt;
+    const miss = actives.filter(x => !revs.some(r => r.person_id === x.id && r.month.slice(0, 7) === sel));
+    return miss.length ? `لم يُقيَّم في ${sel} بعد (${miss.length}): ${miss.map(x => esc(x.full_name)).join('، ')}` : `اكتمل تقييم الجميع في ${sel}`;
+  };
+
+  if (!paint(tok, `
+  ${pageHead(`قيّم ${K.tab} شهرياً على ما نُفذ خلال الشهر، بمعايير خاصة بهذا القسم.`, `<button class="btn sec" id="xS">${ic('download')} تصدير Excel</button>`)}${perfTabs()}
+  <div class="card"><h2>${esc(K.tab)} <span style="display:flex;gap:8px;flex-wrap:wrap">${cands.length ? `<button class="btn sec sm" id="pImp">${ic('users', 16)} إضافة المسجلين (${cands.length})</button>` : ''}<button class="btn sm" id="pAdd">${ic('plus', 16)} إضافة</button></span></h2><div class="tbl" id="ppl">${peopleTable()}</div></div>
+  <div class="card" id="sfCard"><h2>تقييم شهري</h2>
+    ${actives.length ? `<form id="sf"><div class="grid">
+      <div class="fld"><label>الاسم *</label><select name="person_id" required>${actives.map(x => `<option value="${x.id}">${esc(x.full_name)}${x.scope ? ' — ' + esc(x.scope) : ''}</option>`).join('')}</select></div>
+      <div class="fld"><label>الشهر *</label><input type="month" name="month" required value="${today().slice(0, 7)}"></div></div>
+      <div class="fld" style="margin-top:14px"><label>${esc(K.execLbl)}</label><textarea name="executed" maxlength="4000" placeholder="${esc(K.execHint)}"></textarea></div>
+      ${K.metrics.length ? `<div class="grid" style="margin-top:14px">${K.metrics.map(([k, l]) => `<div class="fld"><label>${esc(l)}</label><input type="number" name="m_${k}" min="0" max="1000000" step="1" inputmode="numeric"></div>`).join('')}</div>
+      ${K.ratio ? `<div class="pavg" aria-live="polite"><span>نسبة التنفيذ</span><b id="sratio">—</b></div>` : ''}` : ''}
+      <div class="crit">${K.criteria.map(([k, l]) => `<div class="fld"><label>${esc(l)} <small class="muted">(من 10)</small></label>${pickTen('s_' + k, l)}</div>`).join('')}</div>
+      <div class="pavg" aria-live="polite"><span>المعدل</span><b id="savg">—</b><span class="muted">من 10</span></div>
+      <div class="fld" style="margin-top:14px"><label>ملاحظات</label><textarea name="notes" maxlength="2000"></textarea></div>
+      <div class="muted" id="snote" style="margin-top:8px"></div>
+      <div style="margin-top:12px"><button class="btn" id="sSave">حفظ التقييم</button></div></form>` : emptyBox('users', `أضف ${K.add} أولاً من الجدول أعلاه ثم قيّمه هنا.`)}</div>
+  <div class="card"><h2>التقييمات <select id="smf" style="width:auto;min-width:140px" aria-label="تصفية بالشهر"><option value="all">كل الأشهر</option>${months.map(m => `<option>${esc(m)}</option>`).join('')}</select></h2>
+    <p class="muted" id="smiss" style="margin:0 0 12px">${missLine()}</p><div class="tbl" id="sl">${revTable()}</div></div>`)) return;
+
+  bindPerfTabs();
+  $('#xS').onclick = e => exportXlsx(`${kind === 'coord' ? 'coordinators' : 'executive'}_evaluation_${today()}.xlsx`, [staffSheet(kind, people, revs)], e.currentTarget);
+
+  /* ---- إضافة / تعديل شخص ---- */
+  const personModal = x => {
+    const scopes = x && x.scope && !K.scopeOpts.includes(x.scope) ? [x.scope, ...K.scopeOpts] : K.scopeOpts;
+    const titles = x && x.title && !K.titles.includes(x.title) ? [x.title, ...K.titles] : K.titles;
+    openModal(x ? 'تعديل البيانات' : `إضافة ${K.add}`, `<form id="pp">
+      ${!x && cands.length ? `<div class="fld"><label>اختيار من الأعضاء المسجلين <small class="muted">(اختياري، يملأ الحقول تلقائياً)</small></label><select id="ppEmp"><option value="">— إدخال يدوي —</option>${cands.map(e => `<option value="${e.id}">${esc(e.full_name)}${e.committee ? ' — ' + esc(e.committee) : ''}</option>`).join('')}</select></div>` : ''}
+      <div class="fld"><label>الاسم *</label><input name="full_name" required maxlength="120" lang="ar" value="${esc(x && x.full_name)}"></div>
+      <div class="grid"><div class="fld"><label>الصفة</label><select name="title">${titles.map(t => `<option${x && x.title === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+        <div class="fld"><label>${K.scopeLbl}</label><select name="scope"><option value="">—</option>${scopes.map(t => `<option${x && x.scope === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div></div>
+      <div class="fld"><label>ملاحظات</label><textarea name="notes" maxlength="1000">${esc(x && x.notes)}</textarea></div>
+      ${x ? `<label class="chk-line"><input type="checkbox" name="active"${x.active ? ' checked' : ''}> نشط (يظهر في قائمة التقييم)</label>` : ''}
+      <div class="m-foot"><button type="button" class="btn sec" data-close>إلغاء</button><button class="btn">حفظ</button></div></form>`, {
+      onMount: (el, close) => {
+        const f = $('#pp', el), em = $('#ppEmp', el);
+        if (em) em.onchange = () => {
+          const e = cands.find(c => c.id === em.value); if (!e) return;
+          f.elements.full_name.value = e.full_name;
+          const t = K.titleOf(e); if (t && K.titles.includes(t)) f.elements.title.value = t;
+          f.elements.scope.value = K.scopeOpts.includes(e.committee) ? e.committee : '';
+        };
+        onSubmit(f, async fd => {
+          const row = { full_name: fd.get('full_name').trim(), title: fd.get('title') || null, scope: fd.get('scope') || null, notes: fd.get('notes').trim() || null };
+          if (row.full_name.length < 2) return toast('اكتب الاسم', true);
+          if (x) { row.active = fd.get('active') === 'on'; await db(sb.from('eval_people').update(row).eq('id', x.id)); }
+          else await db(sb.from('eval_people').insert({ ...row, kind, employee_id: (em && em.value) || null }));
+          toast(x ? 'تم حفظ التعديل' : 'تمت الإضافة'); close(); go('performance');
+        });
+      } });
+  };
+  $('#pAdd').onclick = () => personModal();
+  const pImp = $('#pImp');
+  if (pImp) pImp.onclick = async () => {
+    if (!await confirmDialog(`إضافة ${cands.length} من الأعضاء المسجلين (${K.tab}) إلى هذا القسم؟`, 'إضافة', false)) return;
+    run(pImp, async () => {
+      await db(sb.from('eval_people').insert(cands.map(e => ({ kind, full_name: e.full_name, title: K.titleOf(e) || null, scope: K.scopeOpts.includes(e.committee) ? e.committee : null, employee_id: e.id }))));
+      toast(`تمت إضافة ${cands.length}`); go('performance');
+    });
+  };
+  $('#ppl').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const x = people.find(q => q.id === b.dataset.id); if (!x) return;
+    if (b.dataset.a === 'pedit') return personModal(x);
+    if (!await confirmDialog(`حذف «${x.full_name}» من هذا القسم؟ سيُحذف معه كل تقييماته.`, 'حذف')) return;
+    run(b, async () => { await db(sb.from('eval_people').delete().eq('id', x.id)); toast('تم الحذف'); go('performance'); });
+  });
+
+  /* ---- جدول التقييمات وتفاصيلها ---- */
+  const sf = $('#sf');
+  const loadIntoForm = r => {
+    sf.elements.person_id.value = r.person_id; sf.elements.month.value = r.month.slice(0, 7); fill();
+    $('#sfCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const detail = r => {
+    const x = pBy(r.person_id), a = kScore(K, r), rt = kRatio(K, r), sc = r.scores || {}, mt = r.metrics || {};
+    openModal('تفاصيل التقييم', `<p class="muted" style="margin-top:0"><b>${esc(x.full_name)}</b>${x.title ? ' · ' + esc(x.title) : ''}${x.scope ? ' · ' + esc(x.scope) : ''} · ${esc(r.month.slice(0, 7))}</p>
+      <div class="me-sum"><div class="me-big ${a == null ? '' : scoreCls(a)}"><span>المعدل</span><b>${a == null ? '—' : a.toFixed(1)}</b><small>من 10</small></div>
+      <div class="crit-avg">${K.criteria.map(([k, l]) => `<div class="pr"><span class="ca-l">${esc(l)}</span><div class="prog"><i class="${sc[k] == null ? '' : scoreCls(sc[k])}" style="--w:${(sc[k] || 0) * 10}%"></i></div><b>${sc[k] == null ? '—' : sc[k]}</b></div>`).join('')}</div></div>
+      ${K.metrics.length ? `<h4 style="margin:18px 0 8px">الأرقام</h4><div class="crit-avg">${K.metrics.map(([k, l]) => `<div class="pr"><span class="ca-l" style="width:auto;flex:1">${esc(l)}</span><b>${mt[k] == null ? '—' : mt[k]}</b></div>`).join('')}${K.ratio ? `<div class="pr"><span class="ca-l" style="width:auto;flex:1">نسبة التنفيذ</span><b>${rt == null ? '—' : rt + '%'}</b></div>` : ''}</div>` : ''}
+      <h4 style="margin:18px 0 8px">${esc(K.execLbl)}</h4><p style="white-space:pre-wrap;margin:0">${esc(r.executed) || '—'}</p>
+      ${r.notes ? `<h4 style="margin:18px 0 8px">ملاحظات</h4><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p>` : ''}
+      <div class="m-foot"><button type="button" class="btn sec" data-close>إغلاق</button><button type="button" class="btn" data-edit>تعديل هذا التقييم</button></div>`, {
+      onMount: (el, close) => { $('[data-edit]', el).onclick = () => { close(); loadIntoForm(r); }; } });
+  };
+  $('#smf').onchange = e => { flt = e.target.value; $('#sl').innerHTML = revTable(); $('#smiss').textContent = missLine(); };
+  $('#sl').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const r = revs.find(q => q.id === b.dataset.id); if (!r) return;
+    if (b.dataset.a === 'rview') return detail(r);
+    if (!await confirmDialog('حذف هذا التقييم؟', 'حذف')) return;
+    run(b, async () => { await db(sb.from('eval_reviews').delete().eq('id', r.id)); toast('تم الحذف'); go('performance'); });
+  });
+
+  /* ---- نموذج التقييم ---- */
+  if (!sf) return;
+  const setRadio = (name, v) => $$(`input[name="${name}"]`, sf).forEach(i => { i.checked = String(i.value) === String(v); });
+  const showAvg = () => {
+    const v = K.criteria.map(([k]) => { const c = $(`input[name="s_${k}"]:checked`, sf); return c ? +c.value : null; }).filter(q => q != null);
+    $('#savg').textContent = v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : '—';
+    if (K.ratio) { const d = sf.elements['m_' + K.ratio[0]].value, pl = sf.elements['m_' + K.ratio[1]].value; $('#sratio').textContent = d !== '' && +pl > 0 ? (Math.round(+d / +pl * 1000) / 10) + '%' : '—'; }
+  };
+  sf.addEventListener('change', showAvg); sf.addEventListener('input', showAvg);
+  function fill(){
+    const pid = sf.elements.person_id.value, mo = sf.elements.month.value + '-01';
+    const r = revs.find(q => q.person_id === pid && q.month === mo);
+    K.criteria.forEach(([k]) => setRadio('s_' + k, r && (r.scores || {})[k]));
+    K.metrics.forEach(([k]) => { sf.elements['m_' + k].value = r && (r.metrics || {})[k] != null ? r.metrics[k] : ''; });
+    sf.elements.executed.value = (r && r.executed) || '';
+    sf.elements.notes.value = (r && r.notes) || '';
+    showAvg();
+    $('#snote').textContent = r ? 'يوجد تقييم محفوظ لهذا الشخص في هذا الشهر، وسيُحدَّث عند الحفظ.' : '';
+  }
+  sf.elements.person_id.onchange = fill; sf.elements.month.onchange = fill; fill();
+  onSubmit(sf, async f => {
+    if (!f.get('month')) return toast('اختر الشهر', true);
+    const scores = Object.fromEntries(K.criteria.map(([k]) => [k, +f.get('s_' + k)]));
+    const metrics = {}; K.metrics.forEach(([k]) => { const v = f.get('m_' + k); if (v !== '' && v != null) metrics[k] = Math.max(0, Math.round(+v)); });
+    if (K.ratio && metrics[K.ratio[0]] != null && metrics[K.ratio[1]] != null && metrics[K.ratio[1]] === 0 && metrics[K.ratio[0]] > 0) return toast('عدد المخطط له لا يمكن أن يكون صفراً مع وجود منفَّذ', true);
+    await db(sb.from('eval_reviews').upsert({ person_id: f.get('person_id'), month: f.get('month') + '-01', scores, metrics, executed: f.get('executed').trim() || null, notes: f.get('notes').trim() || null }, { onConflict: 'person_id,month' }));
     toast('تم حفظ التقييم'); go('performance');
   });
 }
@@ -2943,7 +3199,8 @@ function breakTable(rows, list, field, firstLabel, opt = {}){
   let groups = list.map(k => ({ k, m: rows.filter(r => r[field] === k) }));
   groups.sort((a, b) => b.m.length - a.m.length);
   if (opt.hideZero) groups = groups.filter(x => x.m.length);
-  const unk = rows.filter(r => !r[field]);
+  const none = rows.filter(r => !r[field]), fr = opt.freeLabel ? none.filter(r => isFree(r.capacity)) : [], unk = none.filter(r => !fr.includes(r));
+  if (fr.length) groups.push({ k: opt.freeLabel, m: fr });
   if (unk.length) groups.push({ k: 'غير محدد', m: unk });
   if (!groups.length) return emptyBox('layout', 'لا توجد بيانات بعد.');
   const max = Math.max(1, ...groups.map(x => x.m.length));
@@ -3012,7 +3269,7 @@ function memberAnalytics(rows, inactN = 0){
     ${dCard('الجنس', [{ v: male, c: 'var(--pri)', l: 'ذكور', keep: 1 }, { v: female, c: '#d6409f', l: 'إناث', keep: 1 }, { v: n - male - female, c: 'var(--mut)', l: 'غير محدد' }], 'توزيع الأعضاء حسب الجنس')}
     ${dCard('طالب / خريج', [{ v: stud, c: 'var(--ok)', l: 'طلاب', keep: 1 }, { v: grad, c: 'var(--warn)', l: 'خريجون', keep: 1 }, { v: n - stud - grad, c: 'var(--mut)', l: 'غير محدد' }], 'توزيع الأعضاء بين طلاب وخريجين')}
   </div>
-  <div class="card"><h2>الأعضاء حسب اللجنة / جهة التمثيل</h2>${breakTable(rows.filter(r => !isCoord(r.capacity)), [...COMMITTEES, ...LEAD_UNITS.filter(u => rows.some(r => r.committee === u))], 'committee', 'اللجنة / جهة التمثيل')}</div>
+  <div class="card"><h2>الأعضاء حسب اللجنة / جهة التمثيل</h2>${breakTable(rows.filter(r => !isCoord(r.capacity)), [...COMMITTEES, ...LEAD_UNITS.filter(u => rows.some(r => r.committee === u))], 'committee', 'اللجنة / جهة التمثيل', { freeLabel: 'بدون لجنة (مساعد / مستشار / غير ذلك)' })}</div>
   ${rows.some(r => isCoord(r.capacity)) ? `<div class="card"><h2>المنسقون ونوابهم حسب المحافظة</h2>${breakTable(rows.filter(r => isCoord(r.capacity)), COORD_UNITS, 'committee', 'المحافظة', { hideZero: true })}</div>` : ''}
   <div class="cols">
     <div class="card"><h2>الأعضاء حسب الصفة</h2>${breakTable(rows, CAPS, 'capacity', 'الصفة')}</div>
@@ -3041,7 +3298,8 @@ async function viewTeamDash(tok){
   const norm_ = rows.filter(r => !isCoord(r.capacity)), coord = rows.filter(r => isCoord(r.capacity));
   const byC = (list, rs) => list.map((l, i) => ({ l, v: rs.filter(r => r.committee === l).length, i })).sort((a, b) => b.v - a.v || a.i - b.i);
   const comms = [...byC(COMMITTEES, norm_), ...byC(LEAD_UNITS, norm_).filter(x => x.v)], withM = comms.filter(x => x.v).length;
-  const unk = norm_.filter(r => !ALL_COMMS.includes(r.committee)).length;
+  const freeN = norm_.filter(r => isFree(r.capacity) && !r.committee).length, unk = norm_.filter(r => !ALL_COMMS.includes(r.committee) && !(isFree(r.capacity) && !r.committee)).length;
+  if (freeN) comms.push({ l: 'بدون لجنة (مساعد / مستشار / غير ذلك)', v: freeN });
   if (unk) comms.push({ l: 'غير محدد', v: unk });
   const govs = byC(COORD_UNITS, coord).filter(x => x.v);
   const name = (me && me.full_name) ? me.full_name.split(' ')[0] : '';
@@ -3124,7 +3382,7 @@ async function viewDashboard(tok){
   $('#xP').onclick = e => exportXlsx(`performance_${stamp}.xlsx`, [perfSheet(perf, en)], e.currentTarget);
   $('#xG').onclick = e => exportXlsx(`engagement_${stamp}.xlsx`, [engSheet(eng)], e.currentTarget);
   $('#xL').onclick = e => run(e.currentTarget, async () => exportXlsx(`access_log_${stamp}.xlsx`, [logSheet(await fetchLogs(), en)], null));
-  $('#xAll').onclick = e => run(e.currentTarget, async () => exportXlsx(`hr_all_data_${stamp}.xlsx`, [empSheet(emps), inSheet(inEmps), taskSheet(tasks), perfSheet(perf, en), engSheet(eng), logSheet(await fetchLogs(), en)], null));
+  $('#xAll').onclick = e => run(e.currentTarget, async () => exportXlsx(`hr_all_data_${stamp}.xlsx`, [empSheet(emps), inSheet(inEmps), taskSheet(tasks), perfSheet(perf, en), engSheet(eng), logSheet(await fetchLogs(), en), ...await staffSheets()], null));
 }
 
 init();
