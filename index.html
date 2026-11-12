@@ -17,7 +17,7 @@
 </script>
 <style>
 /* =====================================================================
-   نظام التصميم — الإصدار 3.20
+   نظام التصميم — الإصدار 3.21
    مقياس المسافات 4/8px · ارتفاع الحقول 42px · نصف قطر: عناصر 10 / بطاقات 12 / نوافذ 18
    ===================================================================== */
 :root{
@@ -288,6 +288,9 @@ button.who:hover b{color:var(--pri)}
 .pc-act{display:flex;gap:6px}
 .pbox{min-height:200px;display:grid;place-items:center;padding:14px;color:var(--mut);font-size:13px;text-align:center}
 .pbox img{max-width:100%;max-height:320px;border-radius:var(--r-ctl);animation:fade .4s}
+.fview{display:grid;gap:14px;justify-items:center;text-align:center}
+.fview img{max-width:100%;max-height:70vh;border-radius:var(--r-ctl);border:1px solid var(--line);background:var(--surface2)}
+.fview .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 
 /* ---------- لوحة التحكم ---------- */
 .dsec{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:32px 0 16px}
@@ -854,8 +857,8 @@ function toast(msg, isErr){
 }
 function friendly(e){
   const m = (e && e.message) || String(e);
-  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.20) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
-  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.20) في SQL Editor ثم أعد المحاولة.';
+  if (/could not find the function|schema cache/i.test(m)) return 'قاعدة البيانات لم تُحدَّث بعد: افتح SQL Editor في Supabase والصق ملف schema.sql (الإصدار 3.21) كاملاً ثم اضغط Run، وانتظر دقيقة وحدّث الصفحة.';
+  if (/capacity_detail/i.test(m) && /column/i.test(m)) return 'لم يُحدَّث ملف schema.sql بعد: شغّله (الإصدار 3.21) في SQL Editor ثم أعد المحاولة.';
   if (/employees_cap_detail_chk/i.test(m)) return 'اكتب «الصفة كاملة» لمساعد / مستشار / غير ذلك';
   if (/employees_lead_unit_chk/i.test(m)) return 'هذه الجهة متاحة للرئيس والنائب فقط';
   if (/registrations_pending_nid/i.test(m)) return 'تم استلام طلب بهذا الرقم من قبل وهو قيد المراجعة';
@@ -1034,6 +1037,8 @@ const xSolid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } }
 const xFont = (o = {}) => ({ name: 'Arial', size: 10, color: { argb: XC.ink }, ...o });
 const xLine = { style: 'thin', color: { argb: XC.line } };
 const xBorder = { top: xLine, left: xLine, bottom: xLine, right: xLine };
+/* [3.21] رابط ثابت لملف في التخزين: يفتح صفحة «عرض الملف» داخل النظام (تتطلب تسجيل الدخول وتحترم الصلاحيات، فلا يوجد رابط عام للهوية) */
+const fileLink = (bucket, path) => path ? location.href.split('#')[0] + '#file/' + bucket + '/' + encodeURIComponent(path) : null;
 const xBlank = v => (v === null || v === undefined || String(v).trim() === '') ? '—' : String(v);
 
 function buildSheet(wb, sh){
@@ -1079,6 +1084,7 @@ function buildSheet(wb, sh){
       switch (c.t){
         case 'text':   val = xBlank(raw); hz = 'right'; nf = '@'; break;
         case 'code':   val = xBlank(raw); nf = '@'; break;
+        case 'link':   val = raw && raw.url ? { text: raw.text, hyperlink: raw.url, tooltip: 'فتح الملف' } : xBlank(raw && raw.text); break;   // [3.21] نص قابل للنقر يفتح الرابط
         case 'num':    val = (raw === null || raw === undefined || raw === '') ? '—' : Number(raw); nf = '0'; break;
         case 'num1':   val = (raw === null || raw === undefined || raw === '') ? '—' : Number(raw); nf = '0.0'; break;
         case 'date': { const d = raw ? ymd(raw) : ''; val = isDate(d) ? new Date(d + 'T00:00:00Z') : '—'; nf = 'yyyy-mm-dd'; break; }
@@ -1092,6 +1098,10 @@ function buildSheet(wb, sh){
       cell.fill = xSolid(i % 2 ? XC.zebra : 'FFFFFFFF');
       cell.border = xBorder;
       cell.alignment = { vertical: 'middle', horizontal: hz, wrapText: c.t === 'text', readingOrder: 'rtl' };
+      if (c.t === 'link'){
+        const ok = !!(raw && raw.url), [bg, fg] = XT[ok ? 'ok' : 'warn'];
+        cell.fill = xSolid(bg); cell.font = ok ? xFont({ bold: true, color: { argb: 'FF1D4ED8' }, underline: true }) : xFont({ bold: true, color: { argb: fg } });
+      }
       if (c.t === 'status'){
         const [bg, fg] = XT[(c.tone && c.tone(val, row)) || 'mut'] || XT.mut;
         cell.fill = xSolid(bg); cell.font = xFont({ bold: true, color: { argb: fg } });
@@ -1142,8 +1152,8 @@ const empSheet = (rows, note) => ({
     { h: 'اسم المدرسة / الجامعة', w: 34, t: 'text', v: r => r.institution },
     { h: 'العنوان', w: 42, t: 'text', v: r => r.address },
     { h: 'الحالة', w: 12, t: 'status', v: r => r.status === 'active' ? 'نشط' : 'غير نشط', tone: v => v === 'نشط' ? 'ok' : 'mut' },
-    { h: 'الصورة الشخصية', w: 15, t: 'status', v: r => r.photo_path ? 'مرفقة' : 'غير مرفقة', tone: v => v === 'مرفقة' ? 'ok' : 'warn' },
-    { h: 'صورة الهوية', w: 14, t: 'status', v: r => r.id_doc_path ? 'مرفقة' : 'غير مرفقة', tone: v => v === 'مرفقة' ? 'ok' : 'warn' },
+    { h: 'الصورة الشخصية', w: 15, t: 'link', v: r => r.photo_path ? { text: 'مرفقة', url: fileLink('photos', r.photo_path) } : { text: 'غير مرفقة' } },
+    { h: 'صورة الهوية', w: 14, t: 'link', v: r => r.id_doc_path ? { text: 'مرفقة', url: fileLink('ids', r.id_doc_path) } : { text: 'غير مرفقة' } },
     { h: 'تاريخ التسجيل', w: 15, t: 'date', v: r => r.created_at },
     ...(isAdmin() ? [{ h: 'أضافه', w: 20, t: 'text', v: r => nameOf(r.created_by) }] : [])
   ]
@@ -1721,7 +1731,7 @@ async function enter(user){
     <aside class="side">
       <div class="brand"><span class="logo">${ic('briefcase', 20)}</span><b>الموارد البشرية</b></div>
       <nav id="nav" aria-label="القائمة الرئيسية">${items.map(([k, v]) => `<a class="nav-i" href="#${k}" data-t="${k}">${ic(v.i, 20)}<span>${v.n}</span></a>`).join('')}</nav>
-      <div class="side-foot muted">الإصدار 3.20</div>
+      <div class="side-foot muted">الإصدار 3.21</div>
     </aside>
     <div class="content">
       <header class="top"><h1 id="ptitle"></h1>
@@ -1796,9 +1806,40 @@ function nameGate(){
       });
     } });
 }
+/* [3.21] #file/<bucket>/<path> : عرض صورة شخصية أو هوية من رابط في ملف Excel */
+const FILE_RX = /^file\/(photos|ids)\/(.+)$/;
+async function openFile(bucket, path){
+  const tok = ++viewTok; current = 'file';
+  $$('.nav-i').forEach(a => { a.classList.remove('on'); a.removeAttribute('aria-current'); });
+  const isId = bucket === 'ids', title = isId ? 'صورة الهوية' : 'الصورة الشخصية';
+  $('#ptitle').textContent = title; document.title = title + ' · نظام الموارد البشرية';
+  $('#view').innerHTML = skeleton(); window.scrollTo(0, 0);
+  try {
+    if (!/^[\w\-.\/]+$/.test(path) || path.includes('..')) throw new Error('رابط الملف غير صالح');
+    const col = isId ? 'id_doc_path' : 'photo_path';
+    const [emp, reg] = await Promise.all([
+      db(sb.from('employees').select('id,full_name,membership_no').eq(col, path)),
+      db(sb.from('registrations').select('id,full_name,membership_no').eq(col, path))
+    ]);
+    const who = emp[0] || reg[0];
+    if (isId){   // الهوية: لا تُعرض إلا لسجل ظاهر لك، ويُسجَّل الاطلاع كما في بطاقة العضو
+      if (!who) throw new Error('هذا الملف غير مرتبط بسجل متاح لك');
+      await db(sb.from('access_log').insert(emp[0] ? { employee_id: emp[0].id, action: 'view_id' } : { registration_id: reg[0].id, action: 'view_reg_id' }));
+    }
+    const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 300);
+    if (error) throw error;
+    paint(tok, `<div class="card fview"><h2>${title}</h2>
+      ${who ? `<p class="muted" style="margin:0"><b>${esc(who.full_name)}</b>${who.membership_no ? ' · رقم العضوية ' + esc(who.membership_no) : ''}</p>` : ''}
+      <img src="${esc(data.signedUrl)}" alt="${title}">
+      <div class="acts"><a class="btn" href="${esc(data.signedUrl)}" target="_blank" rel="noopener">${ic('image', 16)} فتح بالحجم الكامل</a><a class="btn sec" href="#employees">${ic('users', 16)} الأعضاء</a></div>
+      <small class="muted">الرابط داخل النظام ويتطلب تسجيل الدخول، وصلاحية عرض الصورة نفسها مؤقتة.</small></div>`);
+  } catch (e){ paint(tok, errorBox(e)); }
+}
 function route(){
   if (!me) return;
   const t = (location.hash || '').slice(1);
+  const fm = FILE_RX.exec(t);
+  if (fm){ let p = null; try { p = decodeURIComponent(fm[2]); } catch (e){ /* رابط تالف */ } if (p) return openFile(fm[1], p); }
   const ok = VIEWS[t] && (!VIEWS[t].admin || isAdmin());
   go(ok ? t : 'dashboard');
 }
@@ -2230,7 +2271,7 @@ function importModal(){
       busy(`جارٍ فحص الصفوف ومطابقتها مع السجل… ${Math.min(i + 200, todo.length)} من ${todo.length}`, 20 + Math.round((i / todo.length) * 75));
       const chunk = todo.slice(i, i + 200);
       const { data, error } = await sb.rpc('import_members', { p_rows: chunk.map(r => ({ i: r.n, ...r.f })), p_owner: adm ? (S.owner === 'file' ? me.id : S.owner) : null, p_mode: S.mode, p_reassign: false, p_dry: true });
-      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.20) في Supabase ثم أعد المحاولة.' : error.message);
+      if (error) throw new Error(/import_members|function/i.test(error.message || '') ? 'دالة الاستيراد غير موجودة في قاعدة البيانات. شغّل schema.sql (الإصدار 3.21) في Supabase ثم أعد المحاولة.' : error.message);
       const by = new Map(data.map(x => [x.i, x]));
       chunk.forEach(r => { const x = by.get(r.n) || { a: 'error', m: 'لم يرد رد من الخادم' }; r.act = x.a; r.msg = x.m || ''; });
     }
